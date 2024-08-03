@@ -1,4 +1,5 @@
-import enum
+from enum import StrEnum
 
-class Finra(enum):
+
+class Finra(StrEnum):
     BASE_URL: str = "https://api.finra.org"
