@@ -79,7 +79,7 @@ def get_request(group: str, dataset: str, use_async: bool = False) -> GenericRes
 
     data = {
         "content": response.content,
-        "json": response.json() if 'application/json' in response.headers.get('Content-Type', '') else None,
+        "json_response": response.json() if 'application/json' in response.headers.get('Content-Type', '') else None,
         "status_link": response.headers.get("Location") if use_async else None
     }
     return GenericResponse.validate(data)
@@ -101,7 +101,7 @@ def post_request(group: str, dataset: str, payload: dict, use_async: bool = Fals
     headers = {
         "Authorization": f"Bearer {access_token}"
     }
-    payload["async"] = True
+    payload["async"] = use_async
     response = requests.post(url, headers=headers, json=payload)
 
     if not response.ok:
@@ -109,7 +109,7 @@ def post_request(group: str, dataset: str, payload: dict, use_async: bool = Fals
 
     data = {
         "content": response.content,
-        "json": response.json() if 'application/json' in response.headers.get('Content-Type', '') else None,
+        "json_response": response.json() if 'application/json' in response.headers.get('Content-Type', '') else None,
         "status_link": response.headers.get("Location") if use_async else None
     }
 

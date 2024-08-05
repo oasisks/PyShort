@@ -21,7 +21,7 @@ class CompareFilter:
         self.filter["compareType"] = "greater"
         return CompareFilter(self.filter)
 
-    def field(self, field_name):
+    def field_name(self, field_name):
         self.filter["fieldName"] = field_name
         return CompareFilter(self.filter)
 
