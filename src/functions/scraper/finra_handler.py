@@ -4,11 +4,12 @@ import requests
 import os
 
 from constant import Finra
+from compare import CompareFilter
 from datetime import datetime
 from dotenv import load_dotenv
 from errors.finra_errors import FinraAuthInvalid
 from loguru import logger
-from model.RequestModel import GenericResponse
+from model.RequestModel import GenericResponse, PartitionResponse
 from requests.exceptions import RequestException
 
 load_dotenv()
@@ -116,22 +117,47 @@ def post_request(group: str, dataset: str, payload: dict, use_async: bool = Fals
     return GenericResponse.validate(data)
 
 
-if __name__ == '__main__':
-    group = "otcMarket"
-    dataset = "consolidatedShortInterest"
-    payload = {
-        "compareFilters": [
-            {"compareType": "equal", "fieldName": "marketClassCode", "fieldValue": "NNM"},
+def get_partitions(group: str, dataset: str) -> PartitionResponse:
+    """
+    Returns a list of partitions
+    :param group: the group name
+    :param dataset: the dataset name
+    :return: PartitionResponse
+    """
+    access_token = authenticate()
+
+    url = f"{Finra.BASE_URL}/partitions/group/{group}/name/{dataset}"
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    response = requests.get(url, headers)
+
+    json_response = response.json()
+    partitions = {
+        "dataset_name": json_response["datasetName"],
+        "dataset_group": json_response["datasetGroup"],
+        "partition_fields": json_response["partitionFields"],
+        "partitions": [
+            {"values": available_partition["partitions"]}
+            for available_partition in json_response["availablePartitions"]
         ]
     }
-    # response = post_request(group, dataset, payload)
-    # print(response)
-    # response = get_request(group, dataset)
-    # dats = response.content.decode().split("\n")
-    # print(dats)
-    # print(len(dats))
-    # for key in access_token:
-    #     print(key, access_token[key])
-    # print(access_token)
-    # get_request("otcMarket", "consolidatedShortInterest")
+
+    return PartitionResponse.validate(partitions)
+
+
+if __name__ == '__main__':
+    # group = "otcMarket"
+    # dataset = "monthlySummary"
+    # partitions = get_partitions(group, dataset)
+    # print(partitions)
+    # payload = {
+    #     "compareFilters": [
+    #         CompareFilter().equals().field_name("monthStartDate").value('2024-05-01').filter,
+    #         CompareFilter().equals().field_name("tierIdentifier").value("NMS").filter
+    #     ]
+    # }
+    # print(post_request(group, dataset, payload=payload).content)
+    pass
 
