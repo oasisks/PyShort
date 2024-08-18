@@ -1,1 +1,1 @@
-from .finra_errors import FinraAuthInvalid
+from .finra_errors import FinraAuthError

@@ -7,6 +7,9 @@ from typing import Any, Dict, Optional, List
 class GenericResponse(BaseModel):
     content: bytes = Field(default=None, title="content", description="The response content.")
     json_response: Optional[Dict] = Field(default=None, title="json", description="The json response.")
+
+
+class AsyncResponse(GenericResponse):
     status_link: Optional[str] = Field(default=None, title="status_link", description="The status link for async.")
 
 

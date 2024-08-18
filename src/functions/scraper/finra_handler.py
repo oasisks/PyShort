@@ -4,12 +4,12 @@ import requests
 import os
 
 from constant import Finra
-from compare import CompareFilter
 from datetime import datetime
+from devtools import pprint
 from dotenv import load_dotenv
-from errors.finra_errors import FinraAuthInvalid
+from errors.finra_errors import FinraAuthError
 from loguru import logger
-from model.RequestModel import GenericResponse, PartitionResponse
+from model.RequestModel import GenericResponse, PartitionResponse, AsyncResponse
 from requests.exceptions import RequestException
 
 load_dotenv()
@@ -23,7 +23,6 @@ def authenticate() -> bytes:
     # first check and see if the token is cached
     cache_dir = os.environ.get("CACHE_DIRECTORY")
     cache_file = os.path.join(cache_dir, "oath_cache.json")
-    logger.info("CHECKING_OATH_CACHE_EXISTS")
     if os.path.isfile(cache_file):
         with open(cache_file, "r", encoding="utf-8") as oath_cache:
             data = json.load(oath_cache)
@@ -42,12 +41,11 @@ def authenticate() -> bytes:
         "Authorization": f"Basic {encoded_credentials}"
     }
 
-    logger.info("REQUESTING_AUTH")
     response = requests.post(fip_endpoint, headers=headers)
 
     if not response.ok:
         logger.error("AUTH_ERROR")
-        raise FinraAuthInvalid
+        raise FinraAuthError
 
     response = response.json()
 
@@ -55,10 +53,10 @@ def authenticate() -> bytes:
         response["expires_in"] = int(response["expires_in"]) + datetime.now().timestamp()
         json.dump(response, oath_cache, indent=4)
 
-    return response
+    return response["access_token"]
 
 
-def get_request(group: str, dataset: str, use_async: bool = False) -> GenericResponse:
+def get_request(group: str, dataset: str, use_async: bool = False) -> GenericResponse | AsyncResponse:
     """
     Performs a get request to Finra API
 
@@ -67,6 +65,7 @@ def get_request(group: str, dataset: str, use_async: bool = False) -> GenericRes
     :param use_async: Async if True
     :return: A Generic Response
     """
+    logger.info("REQUESTING_AUTH")
     access_token = authenticate()
     url = f"{Finra.BASE_URL}/data/group/{group}/name/{dataset}{'?=async' if use_async else ''}"
     headers = {
@@ -81,14 +80,18 @@ def get_request(group: str, dataset: str, use_async: bool = False) -> GenericRes
     data = {
         "content": response.content,
         "json_response": response.json() if 'application/json' in response.headers.get('Content-Type', '') else None,
-        "status_link": response.headers.get("Location") if use_async else None
     }
-    return GenericResponse.validate(data)
+
+    if use_async:
+        data["status_link"] = response.headers.get("Location")
+        return AsyncResponse.model_validate(data)
+
+    return GenericResponse.model_validate(data)
 
 
-def post_request(group: str, dataset: str, payload: dict, use_async: bool = False) -> GenericResponse:
+def post_request(group: str, dataset: str, payload: dict, use_async: bool = False) -> GenericResponse | AsyncResponse:
     """
-    Performs a post request to Finra API
+    Performs a post request to Finra API EQUITY
 
     :param group: The desired group
     :param dataset: The dataset
@@ -96,6 +99,7 @@ def post_request(group: str, dataset: str, payload: dict, use_async: bool = Fals
     :param use_async: Async if True
     :return: A Generic Response
     """
+    logger.info("REQUESTING_AUTH")
     access_token = authenticate()
     url = f"{Finra.BASE_URL}/data/group/{group}/name/{dataset}"
 
@@ -106,15 +110,19 @@ def post_request(group: str, dataset: str, payload: dict, use_async: bool = Fals
     response = requests.post(url, headers=headers, json=payload)
 
     if not response.ok:
-        raise RequestException
+        message = response.json()["message"]
+        raise RequestException(message)
 
     data = {
         "content": response.content,
         "json_response": response.json() if 'application/json' in response.headers.get('Content-Type', '') else None,
-        "status_link": response.headers.get("Location") if use_async else None
     }
 
-    return GenericResponse.validate(data)
+    if use_async:
+        data["status_link"] = response.headers.get("Location")
+        return AsyncResponse.model_validate(data)
+
+    return GenericResponse.model_validate(data)
 
 
 def get_partitions(group: str, dataset: str) -> PartitionResponse:
@@ -124,6 +132,7 @@ def get_partitions(group: str, dataset: str) -> PartitionResponse:
     :param dataset: the dataset name
     :return: PartitionResponse
     """
+    logger.info("REQUESTING_AUTH")
     access_token = authenticate()
 
     url = f"{Finra.BASE_URL}/partitions/group/{group}/name/{dataset}"
@@ -133,7 +142,11 @@ def get_partitions(group: str, dataset: str) -> PartitionResponse:
 
     response = requests.get(url, headers)
 
+    if not response.ok:
+        raise RequestException
+
     json_response = response.json()
+
     partitions = {
         "dataset_name": json_response["datasetName"],
         "dataset_group": json_response["datasetGroup"],
@@ -143,7 +156,6 @@ def get_partitions(group: str, dataset: str) -> PartitionResponse:
             for available_partition in json_response["availablePartitions"]
         ]
     }
-
     return PartitionResponse.validate(partitions)
 
 
@@ -151,7 +163,7 @@ if __name__ == '__main__':
     # group = "otcMarket"
     # dataset = "monthlySummary"
     # partitions = get_partitions(group, dataset)
-    # print(partitions)
+    # pprint(partitions)
     # payload = {
     #     "compareFilters": [
     #         CompareFilter().equals().field_name("monthStartDate").value('2024-05-01').filter,
