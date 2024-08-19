@@ -1,4 +1,4 @@
-from RequestModel import Partition
+from model.RequestModel import Partition
 
 
 def check_date_exists(date: str, dates: list[Partition]) -> bool:

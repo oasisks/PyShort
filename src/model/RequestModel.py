@@ -2,6 +2,14 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 from typing import Any, Dict, Optional, List
+from enum import StrEnum
+from datetime import datetime
+
+
+class Status(StrEnum):
+    PENDING: str = "pending"
+    COMPLETE: str = "complete"
+    FAILED: str = "failed"
 
 
 class GenericResponse(BaseModel):

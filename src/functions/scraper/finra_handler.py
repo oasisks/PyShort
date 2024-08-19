@@ -3,7 +3,7 @@ import json
 import requests
 import os
 
-from constant import Finra
+from .constant import Finra
 from datetime import datetime
 from devtools import pprint
 from dotenv import load_dotenv
@@ -83,7 +83,8 @@ def get_request(group: str, dataset: str, use_async: bool = False) -> GenericRes
     }
 
     if use_async:
-        data["status_link"] = response.headers.get("Location")
+        status_link = response.headers.get("Location")
+        data["status_link"] = status_link
         return AsyncResponse.model_validate(data)
 
     return GenericResponse.model_validate(data)
@@ -119,7 +120,8 @@ def post_request(group: str, dataset: str, payload: dict, use_async: bool = Fals
     }
 
     if use_async:
-        data["status_link"] = response.headers.get("Location")
+        status_link = response.headers.get("Location")
+        data["status_link"] = status_link
         return AsyncResponse.model_validate(data)
 
     return GenericResponse.model_validate(data)
@@ -157,19 +159,3 @@ def get_partitions(group: str, dataset: str) -> PartitionResponse:
         ]
     }
     return PartitionResponse.validate(partitions)
-
-
-if __name__ == '__main__':
-    # group = "otcMarket"
-    # dataset = "monthlySummary"
-    # partitions = get_partitions(group, dataset)
-    # pprint(partitions)
-    # payload = {
-    #     "compareFilters": [
-    #         CompareFilter().equals().field_name("monthStartDate").value('2024-05-01').filter,
-    #         CompareFilter().equals().field_name("tierIdentifier").value("NMS").filter
-    #     ]
-    # }
-    # print(post_request(group, dataset, payload=payload).content)
-    pass
-
