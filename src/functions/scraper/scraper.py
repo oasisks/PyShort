@@ -1,5 +1,6 @@
 import json
 import os
+
 import requests
 import time
 
@@ -7,6 +8,7 @@ from errors.finra_errors import DateError
 from .finra_handler import post_request, get_partitions
 from .filters import CompareFilter, DomainFilters
 from devtools import pprint
+from loguru import logger
 from typing import List
 from .utils import check_date_exists
 
@@ -15,7 +17,8 @@ def get_short_data(markets: List[str] = None, short_dates: List[str] | str = "re
     """
     Grabs the short interest data from Finra. NOTE: Due to Finra API constraints some ranges might not be available.
 
-    Assumes that the short_dates are valid short_dates. If they are not valid then an error will be raised
+    Assumes that the short_dates are valid short_dates. If they are not valid then an error will be raised.
+    However, if short_dates is empty, the function will just return
 
     # TODO Make it so that it doesn't matter
     Assumes that the short date is of the format YYYY-MM-DD
@@ -23,6 +26,13 @@ def get_short_data(markets: List[str] = None, short_dates: List[str] | str = "re
     :param short_dates: The dates we extract short data from. Default to the most recent date.
     :return:
     """
+    if not short_dates:
+        logger.info("NO_SHORT_DATES")
+        return
+    
+    root_dir = os.path.abspath(os.curdir)
+    folder_path = os.path.join(root_dir, "data")
+
     if not markets:
         markets = ["NYSE", "NNM"]
 
@@ -77,9 +87,7 @@ def get_short_data(markets: List[str] = None, short_dates: List[str] | str = "re
             result_link = response.json()["resultLink"]
 
             result_response = requests.get(result_link)
-            root_dir = os.path.abspath(os.curdir)
 
-            folder_path = os.path.join(root_dir, "data")
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
 
