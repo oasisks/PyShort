@@ -1,8 +1,14 @@
 import datetime
+import os
+import requests
 
+import requests
 from devtools import pprint
+from dotenv import load_dotenv
 from typing import List, Dict
-import yfinance as yf
+from finviz.main_func import get_stock
+
+load_dotenv()
 
 
 def get_float(stocks: List[str], days: List[datetime.datetime]) -> Dict[datetime.datetime, Dict[str, int]]:
@@ -14,10 +20,9 @@ def get_float(stocks: List[str], days: List[datetime.datetime]) -> Dict[datetime
     :param days: A list of days
     :return: The float values for each stock for each day
     """
-
-    for _ in stocks:
-        stock = yf.Ticker(_)
-        pprint(stock.info)
+    # For now, we will just see if it works for getting the float for today only
+    stock = get_stock("AAPL")
+    pprint(stock)
 
 
 if __name__ == '__main__':
