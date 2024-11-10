@@ -2,6 +2,9 @@ import aiohttp
 import asyncio
 from datetime import datetime
 import csv
+from dateutil.relativedelta import relativedelta
+from datetime import datetime, timedelta
+
 
 def write_to_csv(data, filename, fieldnames = ['id', 'body', 'created_at']):
     """
@@ -71,6 +74,8 @@ async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, ma
     start_date = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
     end_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
 
+    current_date = end_date
+    current_messages = []
     while True:
         messages = await fetch_messages(session, symbol, max_id)
         if not messages:
@@ -78,12 +83,19 @@ async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, ma
 
         for msg in messages:
             created_at = datetime.fromisoformat(msg['created_at'].replace("Z", "+00:00"))
+
             if start_date <= created_at <= end_date:
                 all_messages.append(msg)
+                current_messages.append(msg)
             elif created_at < start_date:
-                write_to_csv(all_messages, f"{symbol}_{start_date.strftime('%Y-%m-%d %H:%M:%S')}_{end_date.strftime('%Y-%m-%d %H:%M:%S')}.csv")
+                write_to_csv(current_messages, f"{symbol}_{created_at.strftime('%Y-%m-%d %H:%M:%S')}_{current_date.strftime('%Y-%m-%d %H:%M:%S')}.csv")
 
                 return all_messages  # Stop if messages are older than the start date
+            
+            if current_date - created_at >= timedelta(days=30): # 30 days
+                write_to_csv(current_messages, f"{symbol}_{created_at.strftime('%Y-%m-%d %H:%M:%S')}_{current_date.strftime('%Y-%m-%d %H:%M:%S')}.csv")
+                current_date = created_at
+                current_messages = []
 
         max_id = messages[-1]['id']  # Update max_id to fetch older messages in next call
 
@@ -110,17 +122,32 @@ async def fetch_all_stocks(symbols, start_date, end_date, max_id_dict={}):
         return {symbol: messages for symbol, messages in zip(symbols, results)}
 
 # Example usage
-symbols = ["AAPL", "TSLA", "MSFT"]  # List of stock symbols
-start_date = "2024-11-09T00:00:00Z"
+symbols = [
+    "AAPL", "MSFT", "AMZN", "GOOGL", "GOOG", "NVDA", "META", "TSLA", "AVGO", "PEP", 
+    "COST", "ADBE", "NFLX", "CMCSA", "TXN", "AMD", "AMGN", "INTC", "HON", "QCOM",
+    "INTU", "PYPL", "CSCO", "AMAT", "SBUX", "MDLZ", "ISRG", "ADP", "BKNG", "MU", 
+    "LRCX", "ADI", "ATVI", "VRTX", "REGN", "ZM", "MRNA", "ASML", "SNPS", "KLAC",
+    "MAR", "GILD", "TEAM", "MNST", "CTSH", "ROST", "MELI", "NXPI", "EA", "DOCU", 
+    "EXC", "ILMN", "JD", "FTNT", "CRWD", "WDAY", "KDP", "CTAS", "BIIB", "ABNB",
+    "CEG", "ORLY", "PANW", "WBA", "FAST", "AEP", "SGEN", "CHTR", "VRSK", "BIDU", 
+    "CSX", "ODFL", "DXCM", "PCAR", "MRVL", "DDOG", "PAYX", "CPRT", "OKTA", "ZS",
+    "MTCH", "LULU", "CDNS", "BMRN", "NTES", "ALGN", "IDXX", "PDD", "DD", "TTD", 
+    "NTAP", "SPLK", "SIRI", "FISV", "TTWO", "SWKS", "ANSS", "TSCO", "FLT", "CHKP"
+]
+
+symbols = ["MSFT"]
+
+start_date = "2024-11-07T00:00:00Z"
 end_date = "2024-11-09T23:59:59Z"
 max_id_dict = {}  # Optional max_id for each stock symbol
+
 # Run the asynchronous fetching
 async def main():
-    stock_messages = await fetch_all_stocks(symbols, start_date, end_date, max_id_dict= max_id_dict)
-    for symbol, messages in stock_messages.items():
-        print(f"\nMessages for {symbol}:")
-        for msg in messages:
-            print(msg)
+    stock_messages = await fetch_all_stocks(symbols, start_date, end_date, max_id_dict = max_id_dict)
+    # for symbol, messages in stock_messages.items():
+    #     print(f"\nMessages for {symbol}:")
+    #     for msg in messages:
+    #         print(msg)
 
 # Run the main async function
 asyncio.run(main())
