@@ -13,7 +13,15 @@ def main():
         if not os.path.exists(file_path):
             missing_dates.append(date)
 
-    get_short_data(short_dates=missing_dates)
+    # get_short_data(short_dates="all")
+    file_name = os.path.join(folder_path, "raw_pricedata.csv")
+    file = open(file_name, "r", encoding="utf-8")
+
+    lines = 0
+    for line in file:
+        lines += 1
+
+    print(lines)
 
 if __name__ == '__main__':
-    pass
+    main()

@@ -28,7 +28,7 @@ def authenticate() -> bytes:
             data = json.load(oath_cache)
             # the cache is valid
             if data["expires_in"] > datetime.now().timestamp():
-                logger.info("CACHE_GRABBED")
+                # logger.info("CACHE_GRABBED")
                 return data["access_token"]
 
     api_client_id = os.environ.get("FINRA_CLIENT_ID")
@@ -44,7 +44,7 @@ def authenticate() -> bytes:
     response = requests.post(fip_endpoint, headers=headers)
 
     if not response.ok:
-        logger.error("AUTH_ERROR")
+        # logger.error("AUTH_ERROR")
         raise FinraAuthError
 
     response = response.json()
@@ -100,7 +100,7 @@ def post_request(group: str, dataset: str, payload: dict, use_async: bool = Fals
     :param use_async: Async if True
     :return: A Generic Response
     """
-    logger.info("REQUESTING_AUTH")
+    # logger.info("REQUESTING_AUTH")
     access_token = authenticate()
     url = f"{Finra.BASE_URL}/data/group/{group}/name/{dataset}"
 

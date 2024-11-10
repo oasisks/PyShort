@@ -1,3 +1,5 @@
+import asyncio
+import aiohttp
 import json
 import os
 
@@ -9,8 +11,51 @@ from .finra_handler import post_request, get_partitions
 from .filters import CompareFilter, DomainFilters
 from devtools import pprint
 from loguru import logger
-from typing import List
+from typing import List, Tuple
 from .utils import check_date_exists
+
+
+async def fetch_status(session: aiohttp.ClientSession, url: str, date: str, folder_path: str) -> bool:
+    """
+    Fetch each individual status url and perform a task
+
+    :param session the current session
+    :param url the url we are extracting from
+    :param date the date for the request
+    :param folder_path folder path we are writing to
+    :return: None
+    """
+    async with session.get(url) as response:
+        response_json = await response.json()
+        result_link = response_json["resultLink"]
+
+        if result_link:
+            async with session.get(result_link) as result_response:
+                final = await result_response.text()
+
+                if not os.path.exists(folder_path):
+                    os.makedirs(folder_path)
+
+                file_path = os.path.join(folder_path, f"{date}.csv")
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(final)
+                return True
+        else:
+            logger.error("No result link found")
+            return False
+
+
+async def check_status_links(response_urls: List[Tuple[str, str]], folder_path: str):
+    """
+    Goes through all the response urls asynchronously
+    :param response_urls: the response urls
+    :param folder_path: the path of the folder
+    :return: None
+    """
+    async with aiohttp.ClientSession() as session:
+        tasks = [fetch_status(session, url, date, folder_path) for date, url in response_urls]
+        results = await asyncio.gather(*tasks)
+        return results
 
 
 def get_short_data(markets: List[str] = None, short_dates: List[str] | str = "recent"):
@@ -29,7 +74,7 @@ def get_short_data(markets: List[str] = None, short_dates: List[str] | str = "re
     if not short_dates:
         logger.info("NO_SHORT_DATES")
         return
-    
+
     root_dir = os.path.abspath(os.curdir)
     folder_path = os.path.join(root_dir, "data")
 
@@ -41,15 +86,17 @@ def get_short_data(markets: List[str] = None, short_dates: List[str] | str = "re
     partitions = get_partitions(group, dataset)
     dates = partitions.partitions
 
-    if short_dates != "recent":
+    if short_dates == "all":
+        short_dates = [date.values[0] for date in dates]
+    elif short_dates == "recent":
+        short_dates = [dates[0].values[0]]
+    else:
         invalid_dates = []
         for date in short_dates:
             invalid_dates.append(date) if not date or not check_date_exists(date, dates) else None
 
         if invalid_dates:
             raise DateError(message=f"The following dates are invalid: {invalid_dates}")
-    else:
-        short_dates = [partitions.partitions[0].values[0]]
 
     # filters
     domain_filters = [
@@ -69,30 +116,11 @@ def get_short_data(markets: List[str] = None, short_dates: List[str] | str = "re
         }
 
         response = post_request(group, dataset, payload, use_async=True)
-
+        print((date, response.status_link))
         response_urls.append((date, response.status_link))
 
-    i = 0
-    finished_jobs = 0
-    while finished_jobs != len(response_urls):
-        i = i % len(response_urls)
-        date, url = response_urls[i]
-        response = requests.get(url)
-
-        if response.status_code == 202:
-            time.sleep(0.1)
-            i += 1
-            continue
-        elif response.status_code == 200:
-            result_link = response.json()["resultLink"]
-
-            result_response = requests.get(result_link)
-
-            if not os.path.exists(folder_path):
-                os.makedirs(folder_path)
-
-            file_path = os.path.join(folder_path, f"{date}.txt")
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(result_response.text)
-
-            finished_jobs += 1
+    results = asyncio.run(check_status_links(response_urls, folder_path))
+    if all(results):
+        print("All finished")
+    else:
+        print("Some didn't work")
