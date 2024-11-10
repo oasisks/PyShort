@@ -1,6 +1,35 @@
 import aiohttp
 import asyncio
 from datetime import datetime
+import csv
+
+def write_to_csv(data, filename, fieldnames = ['id', 'body', 'created_at']):
+    """
+    Write a list of dictionaries to a CSV file.
+    @param data: list of dictionaries to write to the CSV file
+    @param filename: str, name of the CSV file to write to
+
+    @return: None
+    """
+    # Open the CSV file for writing
+    with open(filename, mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        
+        # Write the header (column names)
+        writer.writeheader()
+        
+        # Write each dictionary in the data list as a row
+        for row in data:
+            writer.writerow(row)
+
+def read_from_csv(filename):
+    data = []
+    with open(filename, mode='r', newline='', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            # Convert each row (an OrderedDict) to a regular dictionary
+            data.append(dict(row))
+    return data
 
 async def fetch_messages(session, symbol, max_id=None):
     """
@@ -27,18 +56,18 @@ async def fetch_messages(session, symbol, max_id=None):
             print(f"Error fetching {symbol}: {response.status}")
             return []
 
-async def fetch_all_messages_for_stock(session, symbol, start_date, end_date):
+async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, max_id = None):
     """
     Fetch all messages for a given stock symbol within a specified date range.
     @param session: aiohttp.ClientSession object
     @param symbol: str, stock symbol to fetch messages for
     @param start_date: str, start date in ISO format
     @param end_date: str, end date in ISO format
+    @param max_id: int, optional parameter to fetch older messages
 
     @return: list of messages for the given stock symbol within the date range
     """
     all_messages = []
-    max_id = None
     start_date = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
     end_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
 
@@ -52,6 +81,8 @@ async def fetch_all_messages_for_stock(session, symbol, start_date, end_date):
             if start_date <= created_at <= end_date:
                 all_messages.append(msg)
             elif created_at < start_date:
+                write_to_csv(all_messages, f"{symbol}_{start_date.strftime('%Y-%m-%d %H:%M:%S')}_{end_date.strftime('%Y-%m-%d %H:%M:%S')}.csv")
+
                 return all_messages  # Stop if messages are older than the start date
 
         max_id = messages[-1]['id']  # Update max_id to fetch older messages in next call
@@ -60,18 +91,19 @@ async def fetch_all_messages_for_stock(session, symbol, start_date, end_date):
 
     return all_messages
 
-async def fetch_all_stocks(symbols, start_date, end_date):
+async def fetch_all_stocks(symbols, start_date, end_date, max_id_dict={}):
     """
     Fetch all messages for a list of stock symbols within a specified date range.
     @param symbols: list of str, stock symbols to fetch messages for
     @param start_date: str, start date in ISO format
     @param end_date: str, end date in ISO format
+    @param max_id_dict: dict, optional parameter to store max_id for each stock symbol
 
     @return: dictionary of stock symbols and their corresponding messages
     """
     async with aiohttp.ClientSession() as session:
         tasks = [
-            fetch_all_messages_for_stock(session, symbol, start_date, end_date)
+            fetch_all_messages_for_stock(session, symbol, start_date, end_date, max_id=max_id_dict.get(symbol, None))
             for symbol in symbols
         ]
         results = await asyncio.gather(*tasks)
@@ -81,10 +113,10 @@ async def fetch_all_stocks(symbols, start_date, end_date):
 symbols = ["AAPL", "TSLA", "MSFT"]  # List of stock symbols
 start_date = "2024-11-09T00:00:00Z"
 end_date = "2024-11-09T23:59:59Z"
-
+max_id_dict = {}  # Optional max_id for each stock symbol
 # Run the asynchronous fetching
 async def main():
-    stock_messages = await fetch_all_stocks(symbols, start_date, end_date)
+    stock_messages = await fetch_all_stocks(symbols, start_date, end_date, max_id_dict= max_id_dict)
     for symbol, messages in stock_messages.items():
         print(f"\nMessages for {symbol}:")
         for msg in messages:
@@ -92,3 +124,9 @@ async def main():
 
 # Run the main async function
 asyncio.run(main())
+
+# msg = read_from_csv("/Users/nhung/Desktop/PyShort Project/PyShort/src/MSFT_2024-11-09 00:00:00+00:00_2024-11-09 23:59:59+00:00.csv")
+# for m in msg:
+#     print(m)
+#     print("\n")
+
