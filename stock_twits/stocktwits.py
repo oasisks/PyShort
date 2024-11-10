@@ -92,7 +92,7 @@ async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, ma
 
                 return all_messages  # Stop if messages are older than the start date
             
-            if current_date - created_at >= timedelta(days=30): # 30 days
+            if current_date - created_at >= timedelta(days=180):
                 write_to_csv(current_messages, f"{symbol}_{created_at.strftime('%Y-%m-%d %H:%M:%S')}_{current_date.strftime('%Y-%m-%d %H:%M:%S')}.csv")
                 current_date = created_at
                 current_messages = []
@@ -137,7 +137,7 @@ symbols = [
 
 symbols = ["MSFT"]
 
-start_date = "2024-11-07T00:00:00Z"
+start_date = "2020-01-01T00:00:00Z"
 end_date = "2024-11-09T23:59:59Z"
 max_id_dict = {}  # Optional max_id for each stock symbol
 
