@@ -53,15 +53,17 @@ async def main(key, keyword, filter, begin_date, end_date, pages = 5):
 # example usage
 if __name__ == "__main__":
     key = "VAdCJtv9j3REySbXbGoXc5KGcdevjcSO"
-    query = "Apple" 
-    filter = 'source:("The New York Times")' 
-    begin_date = "20220101"
-    end_date = "20220501"
-    pages = 1
+    query = "Amazon" 
+    # filter = 'source:("The New York Times")' 
+    filter = ""
+    begin_date = "20240822"
+    end_date = "20240922"
+    pages = 3
 
     articles = asyncio.run(main(key, query, filter, begin_date, end_date, pages))
     for page in articles:
         for article in page["docs"]:
-            print(article["headline"]["main"])
-            print(article["pub_date"])
+            print("Snippet:", article["snippet"])
+            print("Lead paragraph:", article["lead_paragraph"])
+            # print(article["pub_date"])
             print("\n")
