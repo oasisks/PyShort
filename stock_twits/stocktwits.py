@@ -103,51 +103,54 @@ async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, ma
 
     return all_messages
 
-async def fetch_all_stocks(symbols, start_date, end_date, max_id_dict={}):
+async def fetch_all_stocks(symbols_to_grab, max_id_dict={}):
     """
     Fetch all messages for a list of stock symbols within a specified date range.
-    @param symbols: list of str, stock symbols to fetch messages for
-    @param start_date: str, start date in ISO format
-    @param end_date: str, end date in ISO format
+    @param symbols_to_grab: dict, stock symbols and their corresponding start_date and end_date
     @param max_id_dict: dict, optional parameter to store max_id for each stock symbol
 
     @return: dictionary of stock symbols and their corresponding messages
     """
     async with aiohttp.ClientSession() as session:
         tasks = [
-            fetch_all_messages_for_stock(session, symbol, start_date, end_date, max_id=max_id_dict.get(symbol, None))
-            for symbol in symbols
+            fetch_all_messages_for_stock(session, symbol, dates["start_date"], dates["end_date"], max_id=max_id_dict.get(symbol, None))
+            for symbol, dates in symbols_to_grab.items()
         ]
         results = await asyncio.gather(*tasks)
-        return {symbol: messages for symbol, messages in zip(symbols, results)}
+        return {symbol: messages for symbol, messages in zip(symbols_to_grab.keys(), results)}
 
 # Example usage
-symbols = [
-    "AAPL", "MSFT", "AMZN", "GOOGL", "GOOG", "NVDA", "META", "TSLA", "AVGO", "PEP", 
-    "COST", "ADBE", "NFLX", "CMCSA", "TXN", "AMD", "AMGN", "INTC", "HON", "QCOM",
-    "INTU", "PYPL", "CSCO", "AMAT", "SBUX", "MDLZ", "ISRG", "ADP", "BKNG", "MU", 
-    "LRCX", "ADI", "ATVI", "VRTX", "REGN", "ZM", "MRNA", "ASML", "SNPS", "KLAC",
-    "MAR", "GILD", "TEAM", "MNST", "CTSH", "ROST", "MELI", "NXPI", "EA", "DOCU", 
-    "EXC", "ILMN", "JD", "FTNT", "CRWD", "WDAY", "KDP", "CTAS", "BIIB", "ABNB",
-    "CEG", "ORLY", "PANW", "WBA", "FAST", "AEP", "SGEN", "CHTR", "VRSK", "BIDU", 
-    "CSX", "ODFL", "DXCM", "PCAR", "MRVL", "DDOG", "PAYX", "CPRT", "OKTA", "ZS",
-    "MTCH", "LULU", "CDNS", "BMRN", "NTES", "ALGN", "IDXX", "PDD", "DD", "TTD", 
-    "NTAP", "SPLK", "SIRI", "FISV", "TTWO", "SWKS", "ANSS", "TSCO", "FLT", "CHKP"
-]
+# symbols = [
+#     "AAPL", "MSFT", "AMZN", "GOOGL", "GOOG", "NVDA", "META", "TSLA", "AVGO", "PEP", 
+#     "COST", "ADBE", "NFLX", "CMCSA", "TXN", "AMD", "AMGN", "INTC", "HON", "QCOM",
+#     "INTU", "PYPL", "CSCO", "AMAT", "SBUX", "MDLZ", "ISRG", "ADP", "BKNG", "MU", 
+#     "LRCX", "ADI", "ATVI", "VRTX", "REGN", "ZM", "MRNA", "ASML", "SNPS", "KLAC",
+#     "MAR", "GILD", "TEAM", "MNST", "CTSH", "ROST", "MELI", "NXPI", "EA", "DOCU", 
+#     "EXC", "ILMN", "JD", "FTNT", "CRWD", "WDAY", "KDP", "CTAS", "BIIB", "ABNB",
+#     "CEG", "ORLY", "PANW", "WBA", "FAST", "AEP", "SGEN", "CHTR", "VRSK", "BIDU", 
+#     "CSX", "ODFL", "DXCM", "PCAR", "MRVL", "DDOG", "PAYX", "CPRT", "OKTA", "ZS",
+#     "MTCH", "LULU", "CDNS", "BMRN", "NTES", "ALGN", "IDXX", "PDD", "DD", "TTD", 
+#     "NTAP", "SPLK", "SIRI", "FISV", "TTWO", "SWKS", "ANSS", "TSCO", "FLT", "CHKP"
+# ]
 
-symbols = ["MSFT"]
-
-start_date = "2020-01-01T00:00:00Z"
-end_date = "2024-11-09T23:59:59Z"
+# symbols = ["TSLA"]
+# start_date = "2024-11-13T00:00:00Z"
+# end_date = "2024-11-14T00:00:00Z"
 max_id_dict = {}  # Optional max_id for each stock symbol
+
+symbols_to_grab = {
+    "TSLA": {"start_date": "2024-11-13T00:00:00Z", "end_date": "2024-11-14T00:00:00Z"},
+    "AAPL": {"start_date": "2024-09-18T00:00:00Z", "end_date": "2024-09-19T00:00:00Z"},
+    "MSFT": {"start_date": "2024-10-10T00:00:00Z", "end_date": "2024-10-11T00:00:00Z"},
+}
 
 # Run the asynchronous fetching
 async def main():
-    stock_messages = await fetch_all_stocks(symbols, start_date, end_date, max_id_dict = max_id_dict)
-    # for symbol, messages in stock_messages.items():
-    #     print(f"\nMessages for {symbol}:")
-    #     for msg in messages:
-    #         print(msg)
+    stock_messages = await fetch_all_stocks(symbols_to_grab, max_id_dict = max_id_dict)
+    for symbol, messages in stock_messages.items():
+        print(f"\nMessages for {symbol}:")
+        for msg in messages:
+            print(msg)
 
 # Run the main async function
 asyncio.run(main())
