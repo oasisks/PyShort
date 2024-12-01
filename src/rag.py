@@ -24,7 +24,6 @@ async def fetch_news(ticker: str) -> List[Dict[str, str]]:
     """
     ticker_obj = yf.Ticker(ticker)
     try:
-        print(ticker_obj.get_news())
         return ticker_obj.get_news()
     except Exception as e:
         print(f"Error fetching news for {ticker}: {e}")
@@ -113,12 +112,21 @@ def get_ticker_news(tickers: List[str]) -> Dict[str, Dict[str, str]]:
     return results
 
 
+def get_stock_twits(tickers: List[str]) -> Dict[str, Dict[str, str]]:
+    """
+
+    :param tickers:
+    :return:
+    """
+    pass
+
+
 if __name__ == '__main__':
-    tickers = ["GOOG"]
+    tickers = ["GOOG", "AAPL"]
 
     alL_news = get_ticker_news(tickers)
     for ticker, news in alL_news.items():
         for title, content in news.items():
             print(f"Title: {title}")
 
-            print(f"Content: {content}")
+            print(f"Content: {content}\n")
