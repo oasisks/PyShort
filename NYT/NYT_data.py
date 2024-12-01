@@ -1,7 +1,8 @@
 import aiohttp
 import asyncio
 
-async def fetch_data(session, url, params = None):
+
+async def fetch_data(session, url, params=None):
     """Asynchronous function to fetch data from a given URL using aiohttp
 
     Args:
@@ -13,14 +14,14 @@ async def fetch_data(session, url, params = None):
         response.json() or None: JSON response from the API or None if an error occurs
     """
     try:
-        async with session.get(url, params = params) as response:
+        async with session.get(url, params=params) as response:
             return await response.json()
     except Exception as e:
         print(e)
         return None
 
 
-async def main(key, keyword, filter, begin_date, end_date, pages = 5):
+async def main(key, keyword, filter, begin_date, end_date, pages=5):
     """Asynchronous function to fetch data from the New York Times API
 
     Args:
@@ -34,30 +35,32 @@ async def main(key, keyword, filter, begin_date, end_date, pages = 5):
     Returns:
         (list[dict]): pages number of dictionaries containing the articles from the API
     """
-    
+
     url = "https://api.nytimes.com/svc/search/v2/articlesearch.json"
     params = {"api-key": key,
-            "q": keyword,
-            "fq": filter,
-            "begin_date": begin_date,
-            "end_date": end_date,
-            "sort": "newest",
-            "facet_filter": "true"} 
-    
-    async with aiohttp.ClientSession() as session:
-        tasks = [fetch_data(session, url, params|{"page":page}) for page in range(pages)]
-        results = await asyncio.gather(*tasks) # runs tasks concurrently
+              "q": keyword,
+              "fq": filter,
+              "begin_date": begin_date,
+              "end_date": end_date,
+              "sort": "newest",
+              "facet_filter": "true"}
 
+    async with aiohttp.ClientSession() as session:
+        tasks = [fetch_data(session, url, params | {"page": page}) for page in range(pages)]
+        results = await asyncio.gather(*tasks)  # runs tasks concurrently)
+
+    print(results)
     return [r["response"] for r in results if r]
+
 
 # example usage
 if __name__ == "__main__":
     key = "VAdCJtv9j3REySbXbGoXc5KGcdevjcSO"
-    query = "Amazon" 
+    query = "Akamai"
     # filter = 'source:("The New York Times")' 
     filter = ""
-    begin_date = "20240822"
-    end_date = "20240922"
+    begin_date = "20241008"
+    end_date = "20241108"
     pages = 3
 
     articles = asyncio.run(main(key, query, filter, begin_date, end_date, pages))

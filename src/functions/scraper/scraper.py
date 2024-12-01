@@ -116,7 +116,6 @@ def get_short_data(markets: List[str] = None, short_dates: List[str] | str = "re
         }
 
         response = post_request(group, dataset, payload, use_async=True)
-        print((date, response.status_link))
         response_urls.append((date, response.status_link))
 
     results = asyncio.run(check_status_links(response_urls, folder_path))

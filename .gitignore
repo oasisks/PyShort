@@ -164,3 +164,4 @@ cython_debug/
 # miscellaneous files
 oath_cache.json
 src/data
+src/service_account_key.json
