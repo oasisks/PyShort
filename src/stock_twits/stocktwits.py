@@ -59,13 +59,14 @@ async def fetch_messages(session, symbol, max_id=None):
             print(f"Error fetching {symbol}: {response.status}")
             return []
 
-async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, max_id = None):
+async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, save_tweets = False, max_id = None):
     """
     Fetch all messages for a given stock symbol within a specified date range.
     @param session: aiohttp.ClientSession object
     @param symbol: str, stock symbol to fetch messages for
     @param start_date: str, start date in ISO format
     @param end_date: str, end date in ISO format
+    @param save_tweets: bool, optional parameter to save tweets to CSV files
     @param max_id: int, optional parameter to fetch older messages
 
     @return: list of messages for the given stock symbol within the date range
@@ -88,11 +89,12 @@ async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, ma
                 all_messages.append(msg)
                 current_messages.append(msg)
             elif created_at < start_date:
-                write_to_csv(current_messages, f"{symbol}_{created_at.strftime('%Y-%m-%d %H:%M:%S')}_{current_date.strftime('%Y-%m-%d %H:%M:%S')}.csv")
+                if save_tweets:
+                    write_to_csv(current_messages, f"{symbol}_{created_at.strftime('%Y-%m-%d %H:%M:%S')}_{current_date.strftime('%Y-%m-%d %H:%M:%S')}.csv")
 
                 return all_messages  # Stop if messages are older than the start date
             
-            if current_date - created_at >= timedelta(days=180):
+            if save_tweets and current_date - created_at >= timedelta(days=180):
                 write_to_csv(current_messages, f"{symbol}_{created_at.strftime('%Y-%m-%d %H:%M:%S')}_{current_date.strftime('%Y-%m-%d %H:%M:%S')}.csv")
                 current_date = created_at
                 current_messages = []
@@ -103,17 +105,18 @@ async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, ma
 
     return all_messages
 
-async def fetch_all_stocks(symbols_to_grab, max_id_dict={}):
+async def fetch_all_stocks(symbols_to_grab, save_tweets = False, max_id_dict={}):
     """
     Fetch all messages for a list of stock symbols within a specified date range.
     @param symbols_to_grab: dict, stock symbols and their corresponding start_date and end_date
+    @param save_tweets: bool, optional parameter to save tweets to CSV files
     @param max_id_dict: dict, optional parameter to store max_id for each stock symbol
 
     @return: dictionary of stock symbols and their corresponding messages
     """
     async with aiohttp.ClientSession() as session:
         tasks = [
-            fetch_all_messages_for_stock(session, symbol, dates["start_date"], dates["end_date"], max_id=max_id_dict.get(symbol, None))
+            fetch_all_messages_for_stock(session, symbol, dates["start_date"], dates["end_date"], save_tweets = save_tweets, max_id=max_id_dict.get(symbol, None))
             for symbol, dates in symbols_to_grab.items()
         ]
         results = await asyncio.gather(*tasks)
@@ -136,16 +139,22 @@ async def fetch_all_stocks(symbols_to_grab, max_id_dict={}):
 # symbols = ["TSLA"]
 # start_date = "2024-11-13T00:00:00Z"
 # end_date = "2024-11-14T00:00:00Z"
-max_id_dict = {}  # Optional max_id for each stock symbol
+# max_id_dict = {}  # Optional max_id for each stock symbol
 
-symbols_to_grab = {
-    "TSLA": {"start_date": "2024-11-13T00:00:00Z", "end_date": "2024-11-14T00:00:00Z"},
-    "AAPL": {"start_date": "2024-09-18T00:00:00Z", "end_date": "2024-09-19T00:00:00Z"},
-    "MSFT": {"start_date": "2024-10-10T00:00:00Z", "end_date": "2024-10-11T00:00:00Z"},
-}
+# symbols_to_grab = {
+#     "TSLA": {"start_date": "2024-11-13T00:00:00Z", "end_date": "2024-11-14T00:00:00Z"},
+#     "AAPL": {"start_date": "2024-09-18T00:00:00Z", "end_date": "2024-09-19T00:00:00Z"},
+#     "MSFT": {"start_date": "2024-10-10T00:00:00Z", "end_date": "2024-10-11T00:00:00Z"},
+# }
 
 # Run the asynchronous fetching
 async def main():
+    symbols_to_grab = {
+        "TSLA": {"start_date": "2024-11-13T00:00:00Z", "end_date": "2024-11-14T00:00:00Z"},
+        "AAPL": {"start_date": "2024-09-18T00:00:00Z", "end_date": "2024-09-19T00:00:00Z"},
+        "MSFT": {"start_date": "2024-10-10T00:00:00Z", "end_date": "2024-10-11T00:00:00Z"},
+    }
+    max_id_dict = {} 
     stock_messages = await fetch_all_stocks(symbols_to_grab, max_id_dict = max_id_dict)
     for symbol, messages in stock_messages.items():
         print(f"\nMessages for {symbol}:")
@@ -153,7 +162,7 @@ async def main():
             print(msg)
 
 # Run the main async function
-asyncio.run(main())
+# asyncio.run(main())
 
 # msg = read_from_csv("/Users/nhung/Desktop/PyShort Project/PyShort/src/MSFT_2024-11-09 00:00:00+00:00_2024-11-09 23:59:59+00:00.csv")
 # for m in msg:

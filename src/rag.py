@@ -10,6 +10,11 @@ import yfinance as yf
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from typing import Dict, List, Tuple
+import stock_twits.stocktwits as stocktwits
+import datetime
+import pytz
+
+
 
 load_dotenv()
 
@@ -108,17 +113,54 @@ def get_ticker_news(tickers: List[str]) -> Dict[str, Dict[str, str]]:
     :param tickers: a list of ticker symbol
     :return: dict
     """
-
     results = asyncio.run(process_tickers(tickers))
     return results
 
+def get_ticker_tweets(tickers: List[str]) -> Dict[str, List[Dict[str, str]]]:
+    """
+    Given a list of tickers, it will return a dict of tweets with its respective content. Sample 10 random tweets from each stock and sort them by date (newest first).
+
+    :param tickers: a list of ticker symbol
+    :return: dict {ticker: [tweets], ...}
+    tweet: {id, body, created_at}
+    """
+    # grab the last 24 hours of tweets
+    end_date = datetime.datetime.now(datetime.timezone.utc)
+    start_date = end_date - datetime.timedelta(days=1)
+    end_date = end_date.isoformat()
+    start_date = start_date.isoformat()
+
+    symbols_to_grab = {t : {"start_date": start_date, "end_date": end_date} for t in tickers}
+
+    stock_messages = asyncio.run(stocktwits.fetch_all_stocks(symbols_to_grab))  
+
+    # randomly sample 10 tweets from each stock
+    num_items_to_select = 10
+    for stock, tweets in stock_messages.items(): 
+        # get 10 only if have more than 10
+        selected_tweets = random.sample(tweets, min(num_items_to_select, len(tweets))) 
+        stock_messages[stock] = sorted(selected_tweets, key=lambda x: x["created_at"], reverse=True)        
+
+    return stock_messages
+
 
 if __name__ == '__main__':
-    tickers = ["GOOG"]
+    tickers = ["GOOG", "AAPL"]
 
-    alL_news = get_ticker_news(tickers)
-    for ticker, news in alL_news.items():
-        for title, content in news.items():
-            print(f"Title: {title}")
+    all_tweets = get_ticker_tweets(tickers)
+    for ticker, tweets in all_tweets.items():
+        print(f"\nMessages for {ticker}:")
+        for tweet in tweets:
+            print(tweet["created_at"])
+            print(tweet["body"])
+            print("\n")
 
-            print(f"Content: {content}")
+
+    # alL_news = get_ticker_news(tickers)
+    # for ticker, news in alL_news.items():
+    #     print(f"Ticker: {ticker}", len(news))
+        # for title, content in news.items():
+        #     print(f"Title: {title}")
+
+        #     print(f"Content: {content}")
+        #     print("\n")
