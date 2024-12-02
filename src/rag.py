@@ -13,11 +13,35 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from typing import Dict, List, Tuple
 from model.RagModel import SummaryOutput, Article
+from bert_score import score
+
+from itertools import combinations
 
 load_dotenv()
 
 OPEN_AI_KEY = os.getenv("OPEN_AI_KEY")
 
+def calculate_bertscore(candidate, reference, model_path):
+    """
+    Calculate BERTScore using a custom fine-tuned BERT model.
+
+    Args:
+        candidate (str): The candidate summary.
+        reference (str): The reference summary.
+        model_path (str): Path to the fine-tuned BERT model.
+
+    Returns:
+        F1 scores.
+    """
+    # Calculate BERTScore
+    P, R, F1 = score(
+        [candidate],         # List of candidate summaries
+        [reference],         # List of reference summaries
+        model_type=model_path,  # Custom fine-tuned BERT model
+        num_layers=12,        # Specify the layer if needed
+        verbose=True
+    )
+    return F1.item()
 
 async def fetch_news(ticker: str) -> List[Dict[str, str]]:
     """
@@ -107,6 +131,7 @@ async def process_tickers(tickers: List[str]) -> Dict[str, List[Article]]:
         return all_ticker_news
 
 
+
 def get_ticker_news(tickers: List[str]) -> Dict[str, List[Article]]:
     """
     Given a ticker symbol, it will return a dict of headlines with its respective content
@@ -114,7 +139,34 @@ def get_ticker_news(tickers: List[str]) -> Dict[str, List[Article]]:
     :return: dict
     """
     results = asyncio.run(process_tickers(tickers))
-    print(results)
+
+    model_path = "./finetuned_bert/bert-mlm"
+    scores = []
+    for ticker, news in results.items():
+        if len(news) <= 5:
+            continue
+        
+        for candidate, reference in combinations(news, 2):
+            score = calculate_bertscore(candidate.content, reference.content, model_path)
+            scores.append((candidate, reference, score))
+        
+        # Sort the scores by BERTScore (ascending)
+        sorted_scores = sorted(scores, key=lambda x: x[2])
+        selected_articles = []
+        # At least 5 unique articles are selected
+        for candidate, reference, score in sorted_scores:
+            if candidate not in selected_articles:
+                selected_articles.append(candidate)
+            
+            if reference not in selected_articles:
+                selected_articles.append(reference)
+        
+            # Stop if we have selected 5 unique articles
+            if len(selected_articles) >= 5:
+                break
+        
+        results[ticker] = selected_articles
+
     return results
 
 
@@ -161,7 +213,7 @@ def get_summary(tickers: List[str]) -> List[SummaryOutput]:
 
 
 if __name__ == '__main__':
-    tickers = ["GOOG", "AAPL"]
+    tickers = ["AAPL", "AMZN"]
 
     # all_tweets = get_ticker_tweets(tickers)
     # for ticker, tweets in all_tweets.items():
@@ -171,4 +223,13 @@ if __name__ == '__main__':
     #         print(tweet["body"])
     #         print("\n")
 
-    get_summary(tickers)
+    articles = get_ticker_news(tickers)
+    for ticker, news in articles.items():
+        print(f"\nArticles for {ticker}:")
+        print(len(news))
+        for article in news:
+            print(article.headline)
+            print(article.content)
+            print("\n")
+
+    # get_summary(tickers)
