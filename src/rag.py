@@ -1,3 +1,5 @@
+import time
+
 import aiohttp
 import asyncio
 import os
@@ -12,6 +14,7 @@ import json
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from typing import Dict, List, Tuple
+from llm.summary import create_file, create_batch_summarize, retrieve_batch_summarize, SummaryStatus, list_batches
 from model.RagModel import SummaryOutput, Article
 
 load_dotenv()
@@ -109,12 +112,11 @@ async def process_tickers(tickers: List[str]) -> Dict[str, List[Article]]:
 
 def get_ticker_news(tickers: List[str]) -> Dict[str, List[Article]]:
     """
-    Given a ticker symbol, it will return a dict of headlines with its respective content
+    Given a ticker symbol, it will return a dict of ticker with its respective news articles
     :param tickers: a list of ticker symbol
     :return: dict
     """
     results = asyncio.run(process_tickers(tickers))
-    print(results)
     return results
 
 
@@ -146,18 +148,81 @@ def get_ticker_tweets(tickers: List[str]) -> Dict[str, List[Dict[str, str]]]:
     return stock_messages
 
 
+def generate_news_summary_prompt(ticker: str) -> str:
+    """
+    A helper function to generate a news summary prompt for each ticker
+    :param ticker: symbol
+    :return: Returns the summary prompt for news
+    """
+    news_summary_prompt = (f"Please summarize the following noisy but possible news data extracted from the "
+                           f"YahooFinance News for {ticker} stock, and extract keywords of the news. The news text can "
+                           f"be very noisy since no filtering has been done. Provide a separate summary for each "
+                           f"article and extract keywords for all. Format the answer as: Summary: Article 1: …, …, "
+                           f"Article N: …, Keywords: … You may put ‘N/A’ if the noisy text does not have relevant "
+                           f"information to extract.\nNews:\n")
+
+    return news_summary_prompt
+
+
+def generate_tweets_summary_prompt(ticker: str) -> str:
+    """
+    A helper function to generate a tweet summary for each ticker
+    :param ticker: symbol
+    :return: Returns the summary prompt for the tweets
+    """
+    tweets_summary_prompt = ("Instruction: Please summarize the following noisy but possible tweet posts extracted "
+                             f"from StockTwits for {ticker} stock, and extract keywords from the tweets. The tweets' "
+                             "text can be very noisy due to it being user-generated. Provide a separate summary for "
+                             "each tweet and extract keywords for all. Format the answer as: Summary: Tweet 1: …, …, "
+                             "Tweet N: …, Keywords: … You may put ’N/A’ if the noisy text does not have relevant "
+                             "information to extract.\nTweets:\n")
+    return tweets_summary_prompt
+
+
 def get_summary(tickers: List[str]) -> List[SummaryOutput]:
     """
     For each ticker within tickers, grab news article related to each ticker from yfinance and grab related tweets from
     stocktwits. Then pass each information source into the summary LLM to create a summary.
+
     :param tickers: list of ticker symbols (i.e. "GOOG")
     :return: A dictionary of the ticker symbols to a tuple of
     """
-    all_tweets = get_ticker_tweets(tickers)
-    all_news = get_ticker_news(tickers)
+    current_time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
-    print(json.dumps(all_tweets, indent=4))
-    print(json.dumps(all_news, indent=4))
+    all_news = get_ticker_news(tickers)
+    news_inputs = [
+        (ticker + "_news", generate_news_summary_prompt(ticker) + "\n".join(
+            [f"{i + 1}. {article.headline}\n{article.content}" for i, article in enumerate(articles)]))
+        for ticker, articles in all_news.items()]
+
+    news_file_name = f"{current_time}_news.jsonl"
+    news_bytes = create_file(news_inputs, news_file_name, summarize_tweet=False, in_bytes=True)
+    news_batch = create_batch_summarize(file_name=news_file_name, input_bytes=news_bytes)
+
+    all_tweets = get_ticker_tweets(tickers)
+    tweets_inputs = [
+        (ticker + "_tweets", generate_tweets_summary_prompt(ticker) + "\n".join(
+            [f"{i + 1}. {tweet['body']} " for i, tweet in enumerate(tweets)]))
+        for ticker, tweets in all_tweets.items()]
+    tweets_file_name = f"{current_time}_tweets.jsonl"
+    tweets_bytes = create_file(tweets_inputs, tweets_file_name, summarize_tweet=False, in_bytes=True)
+    tweets_batch = create_batch_summarize(file_name=tweets_file_name, input_bytes=tweets_bytes)
+
+    # once the batch is created, we will wait for 10 seconds until we return that the batch is still in process
+    print(news_batch.id)
+    print(tweets_batch.id)
+    # wait_time = 10
+    # i = 0
+    # while i < wait_time:
+    #     news_status = retrieve_batch_summarize(news_batch.id)
+    #     tweets_status = retrieve_batch_summarize(tweets_batch.id)
+    #
+    #     if news_status == SummaryStatus.COMPLETED and tweets_status == SummaryStatus.COMPLETED:
+    #         print("Finished processing and written on disk")
+    #         break
+    #
+    #     time.sleep(1)
+    #     i += 1
 
 
 if __name__ == '__main__':
@@ -171,4 +236,12 @@ if __name__ == '__main__':
     #         print(tweet["body"])
     #         print("\n")
 
-    get_summary(tickers)
+    # get_summary(tickers)
+    # file = open("news_output.jsonl", "rb")
+
+    # print(file)
+    print(list_batches())
+    retrieved_results = retrieve_batch_summarize("batch_674e22c75f0881908a914c4e949f4e2a")
+    #
+    for line in retrieved_results[1]:
+        print(line)

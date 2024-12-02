@@ -1,12 +1,15 @@
 import json
 import os
 
+from datetime import datetime
 from deprecated import deprecated
 from dotenv import load_dotenv
 from enum import Enum
+from io import BytesIO
+from loguru import logger
 from openai import OpenAI
 from openai.types import Batch
-from typing import List, Tuple
+from typing import List, Tuple, Optional, IO, Dict
 
 load_dotenv()
 
@@ -58,14 +61,34 @@ def summarize(prompt: str) -> str:
     return chat_response
 
 
-def create_file(inputs: List[Tuple[str, str]], file_name: str) -> None:
+def create_file(inputs: List[Tuple[str, str]], file_name: str, summarize_tweet: bool = False,
+                in_bytes: bool = False) -> None | BytesIO:
     """
     Creates a jsonl file
     :param inputs: a list of tuples where the first is the ticker_id and the second is the prompt
     :param file_name: the name of the output file
+    :param summarize_tweet: default to False but when true the system will be more prompted to tweets else more towards
+        plain news.
+    :param in_bytes: Default to False but when True will return the jsonl in bytes and not save the file
     :return: None
     """
-    file = open(file_name, "w", encoding="utf-8")
+    system_content = \
+        ("You are an expert in analyzing financial literacy and investor sentiment through StockTwits "
+         "tweets, specializing in real-time sentiment analysis and trending topics from StockTwits, "
+         "related to stocks and the stock market. Your primary focus is to analyze StockTwits posts, "
+         "financial trends, and real-time discussions to provide insights and context specific to stock "
+         "market performance, collective investor sentiment on StockTwits, and related financial metrics "
+         "as discussed on StockTwits. Your responses should remain grounded in the context of StockTwits "
+         "tweets and their impact on the stock market. You are also aware that human inputs are biased and at times "
+         "unreliable.") if summarize_tweet else \
+            ("You are an expert in financial literacy and sentiment analysis,"
+             " specializing in news and data related to stocks and the stock market. "
+             "Your primary focus is to analyze financial news, trends, and data to provide insights "
+             "and context specific to stock market performance, investor sentiment,"
+             " and related financial metrics. Your responses should remain grounded "
+             "in the context of stocks and the stock market.")
+
+    json_lines = []
     for _ in inputs:
         ticker_id, prompt = _
         body = {
@@ -73,12 +96,7 @@ def create_file(inputs: List[Tuple[str, str]], file_name: str) -> None:
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are an expert in financial literacy and sentiment analysis,"
-                               " specializing in news and data related to stocks and the stock market. "
-                               "Your primary focus is to analyze financial news, trends, and data to provide insights "
-                               "and context specific to stock market performance, investor sentiment,"
-                               " and related financial metrics. Your responses should remain grounded "
-                               "in the context of stocks and the stock market."
+                    "content": system_content
                 },
                 {
                     "role": "user",
@@ -87,9 +105,15 @@ def create_file(inputs: List[Tuple[str, str]], file_name: str) -> None:
             ]
         }
         line = {"custom_id": ticker_id, "method": "POST", "url": "/v1/chat/completions", "body": body}
-        file.write(json.dumps(line) + "\n")
+        json_lines.append(json.dumps(line) + "\n")
 
-    file.close()
+    if in_bytes:
+        buffer = BytesIO()
+        buffer.writelines([line.encode('utf-8') for line in json_lines])
+        return buffer
+    else:
+        with open(file_name, "w", encoding='utf-8') as file:
+            file.writelines(json_lines)
 
 
 def list_batches(limit=20) -> List[Tuple[str, str]]:
@@ -101,11 +125,11 @@ def list_batches(limit=20) -> List[Tuple[str, str]]:
     """
     assert limit <= 100, "Limit is above 100. Range is only from [0, 100]."
     batches = client.batches.list(limit=limit).data
-    sorted_models = sorted(batches, key=lambda x: x.created_at)
+    sorted_models = sorted(batches, key=lambda x: x.created_at, reverse=True)
     return [(batch.id, client.files.retrieve(file_id=batch.input_file_id).filename) for batch in sorted_models]
 
 
-def create_batch_summarize(file_name: str) -> Batch:
+def create_batch_summarize(file_name, input_bytes: Optional[IO[bytes]] = None) -> Optional[Batch]:
     """
     The purpose of this function is to create batch requests to OpenAI's GPT Chat/Completion endpoint.
 
@@ -113,10 +137,14 @@ def create_batch_summarize(file_name: str) -> Batch:
     It will create a brand-new request.
 
     :param file_name: the name of the jsonl file that contains the batched messages
+    :param input_bytes: an optional parameter that takes in a byte stream.
+        If given, will use bytestream instead of filename
     :return: The batch model
     """
+
     # upload the file
-    file = file_name, open(file_name, "rb")
+    file = file_name, input_bytes if input_bytes else open(file_name, "rb")
+
     upload_model = client.files.create(
         file=file,
         purpose="batch"
@@ -130,11 +158,11 @@ def create_batch_summarize(file_name: str) -> Batch:
         endpoint="/v1/chat/completions",
         completion_window="24h"
     )
-
+    logger.info("create_batch_summarize: Created a batch")
     return batch_model
 
 
-def retrieve_batch_summarize(batch_id: str) -> SummaryStatus:
+def retrieve_batch_summarize(batch_id: str) -> Tuple[SummaryStatus, Optional[List[Dict]]]:
     """
     This retrieves the batch given the batch_id. If the batch is not finished then return the batch model.
 
@@ -148,22 +176,16 @@ def retrieve_batch_summarize(batch_id: str) -> SummaryStatus:
     if response.status == "completed":
         # grab the file on the server
         try:
-            file_info = client.files.retrieve(
-                file_id=response.input_file_id
-            )
-
             file_response = client.files.content(
                 file_id=response.output_file_id
             )
-            file_name = "out_" + file_info.filename
-            file_response.write_to_file(file_name)
-            print(f"Successfully retrieved and written to file: {file_name}")
-            return SummaryStatus.COMPLETED
+
+            return SummaryStatus.COMPLETED, [json.loads(line) for line in file_response.text.strip("\n").split("\n")]
         except Exception as e:
             print(f"Couldn't retrieve the output file from the batch: {response.output_file_id}. Error msg: {e}")
-            return SummaryStatus.ERROR
+            return SummaryStatus.ERROR, []
 
-    return SummaryStatus.PROCESSING
+    return SummaryStatus.PROCESSING, []
 
 
 if __name__ == '__main__':
