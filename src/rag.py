@@ -3,16 +3,16 @@ import asyncio
 import os
 import random
 import re
-import requests
 import ssl
 import yfinance as yf
+import stock_twits.stocktwits as stocktwits
+import datetime
+import json
 
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from typing import Dict, List, Tuple
-import stock_twits.stocktwits as stocktwits
-import datetime
-import pytz
+from model.RagModel import SummaryOutput, Article
 
 load_dotenv()
 
@@ -36,6 +36,7 @@ async def fetch_news(ticker: str) -> List[Dict[str, str]]:
 async def fetch_news_content(session: aiohttp.ClientSession, url: str, title: str) -> Tuple[str, str]:
     """
     Performs the request on the URL and grab the content of the yahoo finance news source
+    :return:
     :param session: the current session
     :param url: article url
     :param title: article title
@@ -78,7 +79,7 @@ async def process_ticker_news(session: aiohttp.ClientSession, ticker: str) -> Tu
     return ticker, articles
 
 
-async def process_tickers(tickers: List[str]) -> Dict[str, Dict[str, str]]:
+async def process_tickers(tickers: List[str]) -> Dict[str, List[Article]]:
     """
     Process each ticker concurrently using asyncio
     :param tickers: a list of ticker symbols
@@ -99,18 +100,21 @@ async def process_tickers(tickers: List[str]) -> Dict[str, Dict[str, str]]:
                                      max_field_size=8190 * 2) as session:
         tasks = [process_ticker_news(session, ticker) for ticker in tickers]
         results = await asyncio.gather(*tasks)
-        all_ticker_news = {result[0]: result[1] for result in results}
+        all_ticker_news = {
+            result[0]: [Article(headline=headline, content=content) for headline, content in result[1].items()]
+            for result in results}
 
         return all_ticker_news
 
 
-def get_ticker_news(tickers: List[str]) -> Dict[str, Dict[str, str]]:
+def get_ticker_news(tickers: List[str]) -> Dict[str, List[Article]]:
     """
     Given a ticker symbol, it will return a dict of headlines with its respective content
     :param tickers: a list of ticker symbol
     :return: dict
     """
     results = asyncio.run(process_tickers(tickers))
+    print(results)
     return results
 
 
@@ -142,22 +146,29 @@ def get_ticker_tweets(tickers: List[str]) -> Dict[str, List[Dict[str, str]]]:
     return stock_messages
 
 
-def get_stock_twits(tickers: List[str]) -> Dict[str, Dict[str, str]]:
+def get_summary(tickers: List[str]) -> List[SummaryOutput]:
     """
+    For each ticker within tickers, grab news article related to each ticker from yfinance and grab related tweets from
+    stocktwits. Then pass each information source into the summary LLM to create a summary.
+    :param tickers: list of ticker symbols (i.e. "GOOG")
+    :return: A dictionary of the ticker symbols to a tuple of
+    """
+    all_tweets = get_ticker_tweets(tickers)
+    all_news = get_ticker_news(tickers)
 
-    :param tickers:
-    :return:
-    """
-    pass
+    print(json.dumps(all_tweets, indent=4))
+    print(json.dumps(all_news, indent=4))
 
 
 if __name__ == '__main__':
     tickers = ["GOOG", "AAPL"]
 
-    all_tweets = get_ticker_tweets(tickers)
-    for ticker, tweets in all_tweets.items():
-        print(f"\nMessages for {ticker}:")
-        for tweet in tweets:
-            print(tweet["created_at"])
-            print(tweet["body"])
-            print("\n")
+    # all_tweets = get_ticker_tweets(tickers)
+    # for ticker, tweets in all_tweets.items():
+    #     print(f"\nMessages for {ticker}:")
+    #     for tweet in tweets:
+    #         print(tweet["created_at"])
+    #         print(tweet["body"])
+    #         print("\n")
+
+    get_summary(tickers)
