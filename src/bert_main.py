@@ -11,6 +11,7 @@ import csv
 import aiohttp
 import asyncio
 
+import datetime
 # Load tokenizer
 model_name = "bert-base-uncased"
 tokenizer = BertTokenizer.from_pretrained(model_name)
@@ -21,40 +22,6 @@ original_model = BertForMaskedLM.from_pretrained(model_name)
 # Load fine-tuned model
 fine_tuned_model_path = "./finetuned_bert/bert-mlm"  # Path where the fine-tuned model is saved
 fine_tuned_model = BertForMaskedLM.from_pretrained(fine_tuned_model_path)
-
-def predict_masked_token_with_probs(model, sentence, masked_token="[MASK]", top_k=1):
-    """
-    Predict the masked token in the sentence using the given model and return probabilities.
-    """
-    inputs = tokenizer(sentence, return_tensors="pt", truncation=True, padding=True)
-    masked_index = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(as_tuple=True)[1]
-
-    with torch.no_grad():
-        outputs = model(**inputs)
-        predictions = outputs.logits
-
-    # Extract logits for the masked position and apply softmax for probabilities
-    logits = predictions[0, masked_index, :].squeeze(0)
-    probs = F.softmax(logits, dim=-1)
-    # print(probs)
-
-    all_tokens_with_probs = {
-        tokenizer.decode([token_id]).strip(): prob.item() for token_id, prob in enumerate(probs)
-    }
-
-    # Get top-k predictions
-    top_k_ids = torch.topk(probs, top_k).indices.tolist()
-    top_k_probs = torch.topk(probs, top_k).values.tolist()
-
-    # Decode tokens and pair with probabilities of the top-1 predictions
-    try:
-        predicted_tokens_with_probs = [
-        (tokenizer.decode([token_id]).strip(), prob) for token_id, prob in zip(top_k_ids, top_k_probs)][0]
-    except:
-        predicted_tokens_with_probs = (None, 0)
-
-    return all_tokens_with_probs, predicted_tokens_with_probs
-
 
 def calculate_bertscore(candidate, reference, model_path):
     """
@@ -96,6 +63,40 @@ def mask_text(text):
 
     return masked_text, word_to_mask
 
+async def predict_masked_token_with_probs(model, sentence, top_k=1):
+    """
+    Predict the masked token in the sentence using the given model and return probabilities.
+    """
+    inputs = tokenizer(sentence, return_tensors="pt", truncation=True, padding=True)
+    masked_index = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(as_tuple=True)[1]
+
+    with torch.no_grad():
+        outputs = model(**inputs)
+        predictions = outputs.logits
+
+    # Extract logits for the masked position and apply softmax for probabilities
+    logits = predictions[0, masked_index, :].squeeze(0)
+    probs = F.softmax(logits, dim=-1)
+    # print(probs)
+
+    all_tokens_with_probs = {
+        tokenizer.decode([token_id]).strip(): prob.item() for token_id, prob in enumerate(probs)
+    }
+
+    # Get top-k predictions
+    top_k_ids = torch.topk(probs, top_k).indices.tolist()
+    top_k_probs = torch.topk(probs, top_k).values.tolist()
+
+    # Decode tokens and pair with probabilities of the top-1 predictions
+    try:
+        predicted_tokens_with_probs = [
+        (tokenizer.decode([token_id]).strip(), prob) for token_id, prob in zip(top_k_ids, top_k_probs)][0]
+    except:
+        predicted_tokens_with_probs = (None, 0)
+
+
+    return all_tokens_with_probs, predicted_tokens_with_probs
+
 
 async def predict_masked_token_for_both(unmask_text: str):
     """
@@ -105,13 +106,20 @@ async def predict_masked_token_for_both(unmask_text: str):
     """
     masked_text, word = mask_text(unmask_text)
 
+    tasks = [
+        predict_masked_token_with_probs(original_model, masked_text), predict_masked_token_with_probs(fine_tuned_model, masked_text)
+    ]
+    results = await asyncio.gather(*tasks)
+    original_predictions, correct_pred_original = results[0]
+    fine_tuned_predictions, correct_pred_finetuned = results[1]
+
     # Predict with original BERT
-    original_predictions, correct_pred_original = predict_masked_token_with_probs(original_model, masked_text)
+    # original_predictions, correct_pred_original = await predict_masked_token_with_probs(original_model, masked_text)
     correct_prob_original = original_predictions.get(word.lower(), 0)
     predicted_word_original = correct_pred_original[0]
 
     # Predict with fine-tuned BERT
-    fine_tuned_predictions, correct_pred_finetuned = predict_masked_token_with_probs(fine_tuned_model, masked_text)
+    # fine_tuned_predictions, correct_pred_finetuned = await predict_masked_token_with_probs(fine_tuned_model, masked_text)
     correct_prob_finetuned = fine_tuned_predictions.get(word.lower(), 0)
     predicted_word_finetuned = correct_pred_finetuned[0]
 
@@ -131,22 +139,20 @@ async def get_validation_accuracy():
     """
     df = pd.read_parquet("./finetuned_bert/articles.parquet", engine='pyarrow')
 
-    validation_df = df.sample(frac=1/3, random_state=42)
+    validation_df = df.sample(frac=1/5000, random_state=42)
     total_prob_fined_tuned = 0
     total_prob_original = 0
 
     total_correct_fined_tuned = 0
     total_correct_original = 0
 
-    i = 0
     probabilities = [] # tuples of probabilities for original and fine-tuned correct prediction
 
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            predict_masked_token_for_both(row['text'])
-            for index, row in validation_df.iterrows()
-        ]
-        results = await asyncio.gather(*tasks)
+    tasks = [
+        predict_masked_token_for_both(row['text'])
+        for index, row in validation_df.iterrows() if len(row['text']) > 0
+    ]
+    results = await asyncio.gather(*tasks)
 
     for result in results:
         total_prob_original += result["correct_prob_original"]
@@ -159,37 +165,6 @@ async def get_validation_accuracy():
             total_correct_fined_tuned += 1
 
         probabilities.append((result["correct_prob_original"], result["correct_prob_finetuned"]))
-
-
-    # for index, row in validation_df.iterrows():
-
-    #     masked_text, word = mask_text(row['text'])
-
-    #     # Predict with original BERT
-    #     original_predictions, correct_pred_original = predict_masked_token_with_probs(original_model, masked_text)
-    #     correct_prob_original = original_predictions.get(word.lower(), 0)
-    #     total_prob_original += correct_prob_original
-    #     predicted_word_original = correct_pred_original[0]
-
-    #     if predicted_word_original == word.lower():
-    #         total_correct_original += 1
-
-    #     # Predict with fine-tuned BERT
-    #     fine_tuned_predictions, correct_pred_finetuned = predict_masked_token_with_probs(fine_tuned_model, masked_text)
-    #     correct_prob_finetuned = fine_tuned_predictions.get(word.lower(), 0)
-    #     total_prob_fined_tuned += correct_prob_finetuned
-    #     predicted_word_finetuned = correct_pred_finetuned[0]
-
-    #     if predicted_word_finetuned == word.lower():
-    #         total_correct_fined_tuned += 1
-
-    #     probabilities.append((correct_prob_original, correct_prob_finetuned))
-
-    #     if i % 100 == 0:
-    #         print(f"Processed {i}, {len(validation_df)}")
-    #         print(total_prob_original, total_prob_fined_tuned, total_correct_original, total_correct_fined_tuned)
-    #         print("#########")
-    #     i+=1  
 
     return {
         "original_mean": total_prob_original/len(validation_df),
