@@ -14,7 +14,8 @@ import json
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from typing import Dict, List, Tuple
-from llm.summary import create_file, create_batch_summarize, retrieve_batch_summarize, SummaryStatus, list_batches
+from llm.summary import create_file, create_batch_summarize, retrieve_batch_summarize, SummaryStatus, list_batches, \
+    Batch
 from model.RagModel import SummaryOutput, Article
 from bert_score import score
 
@@ -233,7 +234,7 @@ def generate_tweets_summary_prompt(ticker: str) -> str:
     return tweets_summary_prompt
 
 
-def get_summary(tickers: List[str]) -> List[SummaryOutput]:
+def get_summary(tickers: List[str]) -> Tuple[Batch, Batch]:
     """
     For each ticker within tickers, grab news article related to each ticker from yfinance and grab related tweets from
     stocktwits. Then pass each information source into the summary LLM to create a summary.
@@ -262,21 +263,7 @@ def get_summary(tickers: List[str]) -> List[SummaryOutput]:
     tweets_bytes = create_file(tweets_inputs, tweets_file_name, summarize_tweet=False, in_bytes=True)
     tweets_batch = create_batch_summarize(file_name=tweets_file_name, input_bytes=tweets_bytes)
 
-    # once the batch is created, we will wait for 10 seconds until we return that the batch is still in process
-    print(news_batch.id)
-    print(tweets_batch.id)
-    # wait_time = 10
-    # i = 0
-    # while i < wait_time:
-    #     news_status = retrieve_batch_summarize(news_batch.id)
-    #     tweets_status = retrieve_batch_summarize(tweets_batch.id)
-    #
-    #     if news_status == SummaryStatus.COMPLETED and tweets_status == SummaryStatus.COMPLETED:
-    #         print("Finished processing and written on disk")
-    #         break
-    #
-    #     time.sleep(1)
-    #     i += 1
+    return news_batch, tweets_batch
 
 
 if __name__ == '__main__':
