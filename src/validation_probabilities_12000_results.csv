@@ -1,0 +1,2 @@
+original_mean,original_sum,fine_tuned_mean,fine_tuned_sum,total_sample,original_correct,fine_tuned_correct,original_accuracy,fine_tuned_accuracy
+0.3251687304409266,3902.024765291119,0.4620364782032927,5544.437738439512,12000,3132,3881,0.261,0.3234166666666667

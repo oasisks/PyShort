@@ -212,8 +212,8 @@ def generate_news_summary_prompt(ticker: str) -> str:
                            f"YahooFinance News for {ticker} stock, and extract keywords of the news. The news text can "
                            f"be very noisy since no filtering has been done. Provide a separate summary for each "
                            f"article and extract keywords for all. Format the answer as: Summary: Article 1: …, …, "
-                           f"Article N: …, Keywords: … You may put ‘N/A’ if the noisy text does not have relevant "
-                           f"information to extract.\nNews:\n")
+                           f"Article N: …, Keywords: … You may put ‘N/A’ along with a reason if the noisy text does not have relevant "
+                           f"information to extract. \nNews:\n")
 
     return news_summary_prompt
 
@@ -228,7 +228,7 @@ def generate_tweets_summary_prompt(ticker: str) -> str:
                              f"from StockTwits for {ticker} stock, and extract keywords from the tweets. The tweets' "
                              "text can be very noisy due to it being user-generated. Provide a separate summary for "
                              "each tweet and extract keywords for all. Format the answer as: Summary: Tweet 1: …, …, "
-                             "Tweet N: …, Keywords: … You may put ’N/A’ if the noisy text does not have relevant "
+                             "Tweet N: …, Keywords: … You may put ‘N/A’ along with a reason if the noisy text does not have relevant "
                              "information to extract.\nTweets:\n")
     return tweets_summary_prompt
 
