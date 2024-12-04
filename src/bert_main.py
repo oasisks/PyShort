@@ -168,7 +168,7 @@ async def get_validation_accuracy():
     """
     df = pd.read_parquet("./finetuned_bert/articles.parquet", engine='pyarrow')
 
-    validation_df = df.sample(frac=1/4, random_state=42)
+    validation_df = df.sample(frac=1/20, random_state=42)
     total_prob_fined_tuned = 0
     total_prob_original = 0
 
@@ -181,6 +181,9 @@ async def get_validation_accuracy():
     tasks = []
     i = 0
     for index, row in validation_df.iterrows():
+        if len(row['text']) == 0:
+            continue
+
         if i == 0:
             tasks.append(predict_masked_token_for_both(original_model0, fine_tuned_model0, row['text']))
         elif i == 1:
