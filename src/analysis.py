@@ -9,7 +9,7 @@ news_example1 = (
     f"Stock Percentage Change Prediction: -5 \n \n"
     f"Stock Return: Negative \n \n"
     f"Analysis: "
-    f"TSLA's stock is forecasted to decrease by at least 3% due to negative sentiment arising from Elon Musk's political distractions, potential regulatory challenges in California regarding AI, and slow progress in opening the Supercharger network. The ML model's negative indicator reinforces this bearish outlook, signaling potential selling pressure from concerned investors."
+    f"The forecasted negative stock return stems from a combination of news and model predictions. The articles suggest uncertainty, with the political involvement of Elon Musk potentially distracting from Tesla's business focus, and the slow rollout of the Supercharger network could dampen investor confidence. Additionally, the negative regulatory news regarding AI restrictions adds to the sense of risk for Tesla, aligning with the -5% predicted change from the ARIMA and LSTM models, leading to a forecasted decline in the stock price."
 )
 
 news_example2 = ("Recent News "
@@ -22,7 +22,7 @@ news_example2 = ("Recent News "
                  "Stock Percentage Change Prediction: -1 \n \n"
                  "Stock Return: Neutral\n \n"
                  "Analysis: "
-                 "MSFT's stock is forecasted to remain stable, with no significant price change expected. Positive sentiment around Microsoft's AI initiatives and potential opportunities in the search market is balanced by the lack of immediate catalysts and neutral ML model predictions. Investors may focus on longer-term developments rather than driving short-term price changes.")
+                 "The forecast for Microsoft’s stock return is neutral due to a balance of positive and negative factors. On the positive side, Microsoft's strong positioning in the AI space, highlighted by its integration of AI chatbots, aligns well with the market's growing focus on AI. Additionally, the potential indirect benefits from the government’s scrutiny of Google could improve Microsoft’s Bing, though the full impact is uncertain. On the other hand, the news about Cerebras’ IPO introduces more competition in AI, and the -1% model prediction suggests that investors are weighing these mixed signals cautiously. As a result, the stock is likely to see a modest, neutral change in price.")
 
 news_example3 = ("Recent News "
                  "Summary: \n"
@@ -34,7 +34,7 @@ news_example3 = ("Recent News "
                  "Stock Percentage Change Prediction: 7 \n \n"
                  "Stock Return: Positive \n \n"
                  "Analysis: "
-                 "AAPL's stock is expected to increase by at least 3% due to strong market confidence in Apple's innovation and product launches, particularly with the iPhone 16. While competition from Huawei and foldable phones and regulatory challenges in the EU pose risks, investors are likely to prioritize Apple’s proven ability to navigate challenges effectively in the short term."
+                 "The forecasted positive stock return for Apple stems from a combination of factors. While the competitive pressure from Huawei and the foldable phone market, along with the legal challenges posed by the EU ruling, create some headwinds for Apple, they are not expected to significantly derail the company’s momentum. The launch of the iPhone 16 and Apple's ability to navigate regulatory challenges are expected to drive confidence in the stock. The 7% predicted change from the ARIMA and LSTM models reflects optimism around Apple's growth prospects, leading to a forecasted positive return."
                  )
 
 
@@ -73,7 +73,7 @@ tweets_example1 = ("Recent Tweets Summary: \n"
                    "Keywords: \n TSLA, Tesla, drop, dip buyers, Dogecoin, DOGE.X, Elon Musk, layoffs, hype, revenues, SPY, NVDA, AMD, employee layoffs, EV company. \n \n"
                    "Stock Percentage Change Prediction: -5 \n \n"
                    "Stock Return: Negative \n \n"
-                   "Analysis: TSLA's stock is likely to decrease by at least 3% the next day due to widespread bearish sentiment in recent tweets, concerns about potential layoffs, and skepticism over Tesla's fundamentals. The ML model's negative indicator reinforces this outlook, suggesting that investor anxiety could lead to increased selling pressure."
+                   "Analysis: The forecasted negative stock return for Tesla is driven by a combination of factors. The tweets reflect deep skepticism, with criticism of Elon Musk’s priorities, concerns about potential layoffs, and negative speculation about Tesla’s future revenues. This has likely led to a decrease in investor confidence, with the -5% predicted change from the ARIMA and LSTM models aligning with these negative sentiments. Consequently, the stock is expected to experience a significant decline on the next trading day."
                    )
 
 tweets_example2 = ("Recent Tweets Summary: \n"
@@ -85,10 +85,7 @@ tweets_example2 = ("Recent Tweets Summary: \n"
                    "Keywords: \n MSFT, Microsoft, Windows 11, bug, patch, AI tools, health-care, clinicians, key levels, breakout, $420, retail shakeout, TLRY, CGC, stock action, software issues. \n \n"
                    "Stock Percentage Change Prediction: 1 \n \n"
                    "Stock Return: Neutral \n \n"
-                   "Analysis: MSFT's stock is likely to remain stable, with no significant price change expected. "
-                   "Positive news about health-care AI tools offsets concerns about software bugs and performance, "
-                   "while the ML model's neutral indicator supports the forecast of minimal movement. Investors are "
-                   "likely to wait for further developments before making decisive moves."
+                   "Analysis: The forecast for Microsoft’s stock return is neutral due to a combination of factors. While the announcement of healthcare AI tools positions the company in a strong, growing market and should contribute to positive sentiment, the criticism surrounding Windows 11 bugs and software issues dampens investor enthusiasm. Additionally, the mention of $420 breakout levels and retail-driven downturn introduces some uncertainty and caution. Overall, the 1% predicted change from the ARIMA and LSTM models suggests that Microsoft’s stock will experience slight positive movement, but overall, the return will remain neutral."
                    )
 
 tweets_example3 = ("Recent Tweets Summary: \n"
@@ -101,10 +98,7 @@ tweets_example3 = ("Recent Tweets Summary: \n"
                    "calls, SPY, $572, profits, FOMC, crown, positive sentiment. \n \n"
                    "Stock Percentage Change Prediction: 4 \n \n"
                    "Stock Return: Positive \n \n"
-                   "Analysis: AAPL's stock is forecasted to increase by at least 3% due to widespread positive "
-                   "sentiment, strong product innovation (iOS 18’s features), and trader optimism reflected in calls "
-                   "and historical performance. The ML model's positive indicator supports this bullish outlook, "
-                   "with investors likely to drive demand for AAPL shares.")
+                   "Analysis: The forecasted positive stock return for Apple is driven by a combination of factors. The satellite phone feature in iOS 18 is a notable innovation that could attract new customers, especially those in specialized markets like hikers and backpackers. The trading profits and optimistic projections surrounding AAPL add to the bullish sentiment, and the 4% predicted change from the ARIMA and LSTM models further suggests that the market is confident in Apple’s short-term performance. Consequently, Apple’s stock is expected to experience a positive return on the next trading day.")
 
 
 def generate_tweets_analysis_prompt(ticker: str, summary: str, prediction: float) -> str:
