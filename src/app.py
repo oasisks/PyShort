@@ -1,7 +1,8 @@
 import time
 
 import streamlit as st
-from rag import get_summary
+from typing import Dict, List
+from rag import get_summary, generate_analysis
 from llm.summary import list_batches, retrieve_batch_summarize, SummaryStatus
 
 
@@ -12,7 +13,7 @@ def get_batches():
 
 def side_bar():
     # adding the batches
-    st.sidebar.title("View Batch Summaries")
+    st.sidebar.title("View Batch Summaries/Analysis")
     batches = {batch[1]: batch[0] for batch in get_batches()}
 
     menu = st.sidebar.selectbox("Select a batch", [""] + [batch for batch in batches])
@@ -37,7 +38,7 @@ def side_bar():
 
 def main():
     st.set_page_config(
-        page_title="Non-Collapsible Sidebar",
+        page_title="PyShort Demo",
         page_icon="📊",
         layout="wide",
         initial_sidebar_state="expanded"  # Keep the sidebar expanded and non-collapsible
@@ -70,8 +71,8 @@ def main():
         ### Summarizer gpt4 ###
         # Summarizer component will summarize the news and tweets for the given ticker
         with st.spinner("Initializing Request. Please wait."):
-            get_batches.clear()
             news_batch, tweets_batch = get_summary(tickers)
+            get_batches.clear()
 
         news_jsonl = tweets_jsonl = None
         # we will wait until the batch finishes or times out after 30 seconds
@@ -94,11 +95,39 @@ def main():
                 i += 1
 
         if news_jsonl is None and tweets_jsonl is None:
-            st.write("It seems it is still generating. Please click retry or submit new tickers.")
-
+            st.write(
+                "It seems it is still generating. You can select summary batches below to continue once it finishes")
         else:
-            st.write(news_jsonl)
-            st.write(tweets_jsonl)
+            # Explanation Generator gpt4
+            # Explanation component will generate an explanation for the prediction
+            # based on the summarized news and tweets and ml model output
+            with st.spinner("Initializing request to Analyzer. Please wait."):
+                news_analysis_batch = generate_analysis(news_jsonl, [0.1 for i in news_jsonl])
+                tweets_analysis_batch = generate_analysis(tweets_jsonl, [0.1 for i in tweets_jsonl])
+                get_batches.clear()
+
+            news_analysis_jsonl = tweets_analysis_jsonl = None
+            with st.spinner("Generating Analysis"):
+                get_batches.clear()
+                i = 0
+                time_limit = 60
+                while i < time_limit:
+                    news_analysis_status, news_analysis_jsonl = retrieve_batch_summarize(news_analysis_batch.id)
+                    tweets_analysis_status, tweets_analysis_jsonl = retrieve_batch_summarize(tweets_analysis_batch.id)
+
+                    if news_analysis_status == SummaryStatus.COMPLETED and tweets_analysis_status == SummaryStatus.COMPLETED:
+                        break
+                    else:
+                        news_analysis_jsonl = tweets_analysis_jsonl = None
+                    time.sleep(1)
+                    i += 1
+            if news_analysis_jsonl is None and tweets_analysis_jsonl is None:
+                st.write(
+                    "It seems it is still generating. You can select the analysis from the sidebar at the right when "
+                    "it is ready.")
+
+            # st.write(news_jsonl)
+            # st.write(tweets_jsonl)
 
     st.header("Select Summary Batches")
     batches = {batch[1]: batch[0] for batch in get_batches()}
@@ -114,17 +143,33 @@ def main():
             st.write(f"The selected batch: {option} was not successfully handled. Please try again.")
         else:
             # we want to pass the batch summaries of either tweets or news to gpt for analysis
+
             with st.spinner("Generating Analysis. Please wait"):
-                pass
-            pass
+                # Explanation Generator gpt4
+                # Explanation component will generate an explanation for the
+                # prediction based on the summarized news and tweets and ml model output
+                analysis_batch = generate_analysis(batch, [0.1 for i in batch])
+                get_batches.clear()
+                analysis_jsonl = None
+                i = 0
+                time_limit = 10
+                while i < time_limit:
+                    analysis_status, analysis_jsonl = retrieve_batch_summarize(analysis_batch.id)
+
+                    if analysis_status == SummaryStatus.COMPLETED:
+                        break
+                    else:
+                        analysis_jsonl = None
+                    time.sleep(1)
+                    i += 1
+                if analysis_jsonl is None:
+                    st.write(
+                        "It seems the analysis is still generating, you can view the analysis on the side bar when it"
+                        "is ready."
+                    )
+
     ### Movement Predictor ###
     # ML movel will predict the movement of the stock price for the given ticker based on the numerical data from the rag component
-
-    ### Explanation Generator gpt4 ###
-    # Explanation component will generate an explanation for the prediction based on the summarized news and tweets and ml model output
-
-    # Display the prediction
-
     if is_valid:
         st.write(f"Prediction for ticker: {tickers}")
     else:

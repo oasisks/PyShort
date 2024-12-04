@@ -11,6 +11,7 @@ import stock_twits.stocktwits as stocktwits
 import datetime
 import json
 
+from analysis import generate_news_analysis_prompt, generate_tweets_analysis_prompt
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from typing import Dict, List, Tuple
@@ -264,6 +265,36 @@ def get_summary(tickers: List[str]) -> Tuple[Batch, Batch]:
     tweets_batch = create_batch_summarize(file_name=tweets_file_name, input_bytes=tweets_bytes)
 
     return news_batch, tweets_batch
+
+
+def generate_analysis(batch: List[Dict], prediction: List[float]) -> Batch:
+    """
+    Generate analysis for each row in the jsonl. The flag is_news will determine if its news or tweets.
+    Assumes that each batch is of one type (i.e. news or tweets)
+    Will return an assertion if the jsonl contains entries not part of tweets or news
+    :param batch: a list of dictionaries containing the summary information
+    :param prediction: a parallel list of predictions to each line in jsonl
+    :return: this will return a parallel list of dictionaries pertaining to each summary
+    """
+    current_time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    is_news = True
+    inputs = []
+    for i, line in enumerate(batch):
+        ticker, batch_type = line["custom_id"].split("_")
+        ticker_summary = line["response"]["body"]["choices"][0]["message"]
+        assert batch_type == "news" or batch_type == "tweets", "invalid batch_type"
+        if batch_type == "news":
+            prompt = generate_news_analysis_prompt(ticker, ticker_summary, prediction[i])
+        else:
+            prompt = generate_tweets_analysis_prompt(ticker, ticker_summary, prediction[i])
+            is_news = False
+        inputs.append((f"{ticker}_analysis.jsonl", prompt))
+
+    file_name = f"{current_time}_analysis.jsonl"
+    jsonl_bytes = create_file(inputs, summarize_tweet=not is_news, in_bytes=True)
+    jsonl_batch = create_batch_summarize(file_name=file_name, input_bytes=jsonl_bytes)
+
+    return jsonl_batch
 
 
 if __name__ == '__main__':

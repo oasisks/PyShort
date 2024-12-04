@@ -61,7 +61,7 @@ def summarize(prompt: str) -> str:
     return chat_response
 
 
-def create_file(inputs: List[Tuple[str, str]], file_name: str, summarize_tweet: bool = False,
+def create_file(inputs: List[Tuple[str, str]], file_name: str = "", summarize_tweet: bool = False,
                 in_bytes: bool = False) -> None | BytesIO:
     """
     Creates a jsonl file
