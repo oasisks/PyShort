@@ -6,7 +6,7 @@ from dateutil.relativedelta import relativedelta
 from datetime import datetime, timedelta
 
 
-def write_to_csv(data, filename, fieldnames = ['id', 'body', 'created_at']):
+def write_to_csv(data, filename, fieldnames=['id', 'body', 'created_at']):
     """
     Write a list of dictionaries to a CSV file.
     @param data: list of dictionaries to write to the CSV file
@@ -17,13 +17,14 @@ def write_to_csv(data, filename, fieldnames = ['id', 'body', 'created_at']):
     # Open the CSV file for writing
     with open(filename, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
-        
+
         # Write the header (column names)
         writer.writeheader()
-        
+
         # Write each dictionary in the data list as a row
         for row in data:
             writer.writerow(row)
+
 
 def read_from_csv(filename):
     data = []
@@ -33,6 +34,7 @@ def read_from_csv(filename):
             # Convert each row (an OrderedDict) to a regular dictionary
             data.append(dict(row))
     return data
+
 
 async def fetch_messages(session, symbol, max_id=None):
     """
@@ -47,8 +49,8 @@ async def fetch_messages(session, symbol, max_id=None):
     params = {'max': max_id} if max_id else {}
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-    }  
-    
+    }
+
     keys_to_keep = ['id', 'body', 'created_at']
     async with session.get(url, params=params, headers=headers) as response:
         if response.status == 200:
@@ -59,7 +61,8 @@ async def fetch_messages(session, symbol, max_id=None):
             print(f"Error fetching {symbol}: {response.status}")
             return []
 
-async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, save_tweets = False, max_id = None):
+
+async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, save_tweets=False, max_id=None):
     """
     Fetch all messages for a given stock symbol within a specified date range.
     @param session: aiohttp.ClientSession object
@@ -90,12 +93,14 @@ async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, sa
                 current_messages.append(msg)
             elif created_at < start_date:
                 if save_tweets:
-                    write_to_csv(current_messages, f"{symbol}_{created_at.strftime('%Y-%m-%d %H:%M:%S')}_{current_date.strftime('%Y-%m-%d %H:%M:%S')}.csv")
+                    write_to_csv(current_messages,
+                                 f"{symbol}_{created_at.strftime('%Y-%m-%d %H:%M:%S')}_{current_date.strftime('%Y-%m-%d %H:%M:%S')}.csv")
 
                 return all_messages  # Stop if messages are older than the start date
-            
+
             if save_tweets and current_date - created_at >= timedelta(days=180):
-                write_to_csv(current_messages, f"{symbol}_{created_at.strftime('%Y-%m-%d %H:%M:%S')}_{current_date.strftime('%Y-%m-%d %H:%M:%S')}.csv")
+                write_to_csv(current_messages,
+                             f"{symbol}_{created_at.strftime('%Y-%m-%d %H:%M:%S')}_{current_date.strftime('%Y-%m-%d %H:%M:%S')}.csv")
                 current_date = created_at
                 current_messages = []
 
@@ -105,7 +110,8 @@ async def fetch_all_messages_for_stock(session, symbol, start_date, end_date, sa
 
     return all_messages
 
-async def fetch_all_stocks(symbols_to_grab, save_tweets = False, max_id_dict={}):
+
+async def fetch_all_stocks(symbols_to_grab, save_tweets=False, max_id_dict={}):
     """
     Fetch all messages for a list of stock symbols within a specified date range.
     @param symbols_to_grab: dict, stock symbols and their corresponding start_date and end_date
@@ -116,11 +122,13 @@ async def fetch_all_stocks(symbols_to_grab, save_tweets = False, max_id_dict={})
     """
     async with aiohttp.ClientSession() as session:
         tasks = [
-            fetch_all_messages_for_stock(session, symbol, dates["start_date"], dates["end_date"], save_tweets = save_tweets, max_id=max_id_dict.get(symbol, None))
+            fetch_all_messages_for_stock(session, symbol, dates["start_date"], dates["end_date"],
+                                         save_tweets=save_tweets, max_id=max_id_dict.get(symbol, None))
             for symbol, dates in symbols_to_grab.items()
         ]
         results = await asyncio.gather(*tasks)
         return {symbol: messages for symbol, messages in zip(symbols_to_grab.keys(), results)}
+
 
 # Example usage
 # symbols = [
@@ -154,8 +162,8 @@ async def main():
         "AAPL": {"start_date": "2024-09-18T00:00:00Z", "end_date": "2024-09-19T00:00:00Z"},
         "MSFT": {"start_date": "2024-10-10T00:00:00Z", "end_date": "2024-10-11T00:00:00Z"},
     }
-    max_id_dict = {} 
-    stock_messages = await fetch_all_stocks(symbols_to_grab, max_id_dict = max_id_dict)
+    max_id_dict = {}
+    stock_messages = await fetch_all_stocks(symbols_to_grab, max_id_dict=max_id_dict)
     for symbol, messages in stock_messages.items():
         print(f"\nMessages for {symbol}:")
         for msg in messages:
@@ -168,4 +176,3 @@ async def main():
 # for m in msg:
 #     print(m)
 #     print("\n")
-

@@ -270,4 +270,5 @@ if __name__ == '__main__':
     #
     # for batch in batch_list:
     #     print(batch)
-    pass
+    for model in client.models.list():
+        print(model)

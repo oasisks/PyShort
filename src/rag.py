@@ -149,6 +149,7 @@ def get_ticker_news(tickers: List[str]) -> Dict[str, List[Article]]:
     model_path = "./finetuned_bert/bert-mlm"
     scores = []
     for ticker, news in results.items():
+        print(f"On {ticker}")
         if len(news) <= 5:
             continue
 
@@ -186,7 +187,7 @@ def get_ticker_tweets(tickers: List[str]) -> Dict[str, List[Dict[str, str]]]:
     """
     # grab the last 24 hours of tweets
     end_date = datetime.datetime.now(datetime.timezone.utc)
-    start_date = end_date - datetime.timedelta(days=1)
+    start_date = end_date - datetime.timedelta(days=3)
     end_date = end_date.isoformat()
     start_date = start_date.isoformat()
 
@@ -267,13 +268,13 @@ def get_summary(tickers: List[str]) -> Tuple[Batch, Batch]:
     return news_batch, tweets_batch
 
 
-def generate_analysis(batch: List[Dict], prediction: List[float]) -> Batch:
+def generate_analysis(batch: List[Dict], predictions: List[float]) -> Batch:
     """
     Generate analysis for each row in the jsonl. The flag is_news will determine if its news or tweets.
     Assumes that each batch is of one type (i.e. news or tweets)
     Will return an assertion if the jsonl contains entries not part of tweets or news
     :param batch: a list of dictionaries containing the summary information
-    :param prediction: a parallel list of predictions to each line in jsonl
+    :param predictions: a parallel list of predictions to each line in jsonl
     :return: this will return a parallel list of dictionaries pertaining to each summary
     """
     current_time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
@@ -284,13 +285,13 @@ def generate_analysis(batch: List[Dict], prediction: List[float]) -> Batch:
         ticker_summary = line["response"]["body"]["choices"][0]["message"]
         assert batch_type == "news" or batch_type == "tweets", "invalid batch_type"
         if batch_type == "news":
-            prompt = generate_news_analysis_prompt(ticker, ticker_summary, prediction[i])
+            prompt = generate_news_analysis_prompt(ticker, ticker_summary, predictions[i])
         else:
-            prompt = generate_tweets_analysis_prompt(ticker, ticker_summary, prediction[i])
+            prompt = generate_tweets_analysis_prompt(ticker, ticker_summary, predictions[i])
             is_news = False
-        inputs.append((f"{ticker}_analysis.jsonl", prompt))
+        inputs.append((f"{ticker}_{'news' if is_news else 'tweets'}_analysis.jsonl", prompt))
 
-    file_name = f"{current_time}_analysis.jsonl"
+    file_name = f"{current_time}_{'news' if is_news else 'tweets'}_analysis.jsonl"
     jsonl_bytes = create_file(inputs, summarize_tweet=not is_news, in_bytes=True)
     jsonl_batch = create_batch_summarize(file_name=file_name, input_bytes=jsonl_bytes)
 
@@ -298,7 +299,7 @@ def generate_analysis(batch: List[Dict], prediction: List[float]) -> Batch:
 
 
 if __name__ == '__main__':
-    tickers = ["AAPL", "AMZN"]
+    # tickers = ["AAPL", "AMZN"]
 
     # all_tweets = get_ticker_tweets(tickers)
     # for ticker, tweets in all_tweets.items():
@@ -312,8 +313,50 @@ if __name__ == '__main__':
     # file = open("news_output.jsonl", "rb")
 
     # print(file)
-    print(list_batches())
-    retrieved_results = retrieve_batch_summarize("batch_674e22c75f0881908a914c4e949f4e2a")
+    # print(list_batches())
+    # retrieved_results = retrieve_batch_summarize("batch_674e22c75f0881908a914c4e949f4e2a")
+
+    # for line in retrieved_results[1]:
+    #     print(line)
+    # tickers = ["AAPL"]
     #
-    for line in retrieved_results[1]:
-        print(line)
+    # news = get_ticker_news(tickers)
+    # print(news)
+    output = [("""Summary:
+
+Article 1: AgEagle Aerial Systems was invited to the White House for discussions on commercial unmanned aerial vehicles (UAVs). The meeting included key UAV stakeholders and government officials to explore issues like supply chain security, manufacturing, and policies related to UAV operations. AgEagle CEO Bill Irby expressed the importance of collaboration between the private sector and government to scale the benefits of UAV technology.
+
+Article 2: N/A - The phrase "Top Midday Gainers" lacks context or relevant information.
+
+Article 3: AgEagle Aerial Systems appointed Brent Klavon, a retired U.S. Navy pilot, to its board of directors. Klavon’s extensive aviation experience and expertise in regulations and technology are expected to be valuable to AgEagle's strategic growth and innovation in the UAV sector.
+
+Article 4: L.B. Day was appointed to AgEagle Aerial Systems' board of directors. With a strong background in strategic planning, marketing, and leadership, Day brings significant experience to aid AgEagle in innovation and shareholder value creation.
+
+Article 5: AgEagle Aerial Systems named Adrienne Anderson as the interim Chief Financial Officer (CFO).
+
+Keywords: AgEagle Aerial Systems, UAVs, White House, commercial unmanned aerial vehicles, supply chain security, government officials, Brent Klavon, board of directors, aviation experience, L.B. Day, strategic planning, Adrienne Anderson, interim CFO.""", """Step-by-Step Explanation:
+
+1. **Recent News Analysis:**
+   - **Positive Developments:**
+     - **Article 1:** AgEagle Aerial Systems' invitation to the White House for discussions on commercial UAVs indicates significant governmental recognition and potential influence in shaping regulatory frameworks. This engagement can enhance investor confidence as it signals strong governmental and industry relationships.
+     - **Article 3 & 4:** The appointments of Brent Klavon and L.B. Day to the board of directors align with strategic growth and innovative leadership, potentially bolstering the company's market positioning. Klavon's aviation experience and Day's strategic planning insights are likely to support AgEagle in navigating complex regulatory and market landscapes.
+     - **Article 5:** The appointment of an interim CFO (Adrienne Anderson) provides stability in financial leadership, which is typically viewed positively by investors anticipating sound financial management and strategic financial planning.
+
+2. **Model Predictions:**
+   - The ARIMA and LSTM models predict a substantial positive percentage change of 63.7756410036466%, which strongly indicates a significant upward movement in the stock price. Given this prediction, there's a substantial mathematical expectation of a positive return.
+
+3. **Integration of News and Models:**
+   - While certain appointments and governmental involvement are not directly quantifiable in terms of stock price impact, they symbolize strategic moves and confidence-building activities, which are positive signals to the market.
+   - The high positive forecast from the models, supported by news about strategic appointments and governmental engagement, suggests that the market will likely react positively.
+
+Finalized Output:
+
+Stock Return: Positive
+
+Analysis: The stock return for AgEagle Aerial Systems is forecasted to be positive due to a combination of favorable news and a substantial model prediction indicating a significant price increase. The company's involvement in high-level governmental discussions enhances its industry standing and potential influence in shaping the UAV market, providing optimism about future growth prospects. Furthermore, the strategic appointments to the board and the interim CFO position instill confidence in leadership stability and strategic direction. Coupled with a strong positive prediction from ARIMA and LSTM models, these factors collectively suggest a likely increase in the stock price exceeding the 3% threshold, supporting a positive stock return forecast.""")]
+    model_path = "./finetuned_bert/bert-mlm"
+    scores = []
+    candidate = output[0][1]
+    reference = output[0][0]
+    score = calculate_bertscore(candidate, reference, model_path)
+    print(score)
